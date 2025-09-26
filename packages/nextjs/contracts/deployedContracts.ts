@@ -7,12 +7,38 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     TokenLaunchpad: {
-      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      address: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
       abi: [
         {
-          inputs: [],
+          inputs: [
+            {
+              internalType: "contract IWorldID",
+              name: "_worldId",
+              type: "address",
+            },
+            {
+              internalType: "string",
+              name: "_appId",
+              type: "string",
+            },
+            {
+              internalType: "string",
+              name: "_action",
+              type: "string",
+            },
+          ],
           stateMutability: "nonpayable",
           type: "constructor",
+        },
+        {
+          inputs: [],
+          name: "DailyLimitExceededError",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "InvalidNullifier",
+          type: "error",
         },
         {
           anonymous: false,
@@ -37,6 +63,31 @@ const deployedContracts = {
             },
           ],
           name: "CreatorFeesWithdrawn",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "attemptedAmount",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "dailyLimit",
+              type: "uint256",
+            },
+          ],
+          name: "DailyLimitExceeded",
           type: "event",
         },
         {
@@ -182,8 +233,40 @@ const deployedContracts = {
           type: "event",
         },
         {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+          ],
+          name: "WorldIDVerified",
+          type: "event",
+        },
+        {
           inputs: [],
           name: "CREATOR_FEE_RATE",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "DAILY_MINT_LIMIT",
           outputs: [
             {
               internalType: "uint256",
@@ -210,6 +293,19 @@ const deployedContracts = {
         {
           inputs: [],
           name: "PLATFORM_FEE_RATE",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "SECONDS_IN_DAY",
           outputs: [
             {
               internalType: "uint256",
@@ -272,8 +368,56 @@ const deployedContracts = {
               name: "tokenAddress",
               type: "address",
             },
+            {
+              internalType: "uint256",
+              name: "root",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256[8]",
+              name: "proof",
+              type: "uint256[8]",
+            },
           ],
           name: "buyTokens",
+          outputs: [],
+          stateMutability: "payable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "tokenAddress",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "tokenAmount",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "root",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256[8]",
+              name: "proof",
+              type: "uint256[8]",
+            },
+          ],
+          name: "buyTokensExact",
           outputs: [],
           stateMutability: "payable",
           type: "function",
@@ -373,6 +517,68 @@ const deployedContracts = {
               internalType: "address[]",
               name: "",
               type: "address[]",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+          ],
+          name: "getDailyMintedAmount",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "tokenAddress",
+              type: "address",
+            },
+            {
+              internalType: "uint256",
+              name: "tokenAmount",
+              type: "uint256",
+            },
+          ],
+          name: "getEthRequiredForTokens",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+          ],
+          name: "getRemainingDailyLimit",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
             },
           ],
           stateMutability: "view",
@@ -550,30 +756,6 @@ const deployedContracts = {
           name: "transferOwnership",
           outputs: [],
           stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          name: "userBalances",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
-            },
-          ],
-          stateMutability: "view",
           type: "function",
         },
         {

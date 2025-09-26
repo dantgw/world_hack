@@ -55,3 +55,57 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Failed to fetch token info" }, { status: 500 });
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { address, functionName, args } = body;
+
+    if (!address || !functionName) {
+      return NextResponse.json({ success: false, error: "Address and function name are required" }, { status: 400 });
+    }
+
+    let result;
+
+    if (functionName === "balanceOf") {
+      // Handle ERC20 balanceOf call
+      const tokenContract = {
+        address: address as `0x${string}`,
+        abi: [
+          {
+            name: "balanceOf",
+            type: "function",
+            stateMutability: "view",
+            inputs: [{ name: "account", type: "address" }],
+            outputs: [{ name: "", type: "uint256" }],
+          },
+        ],
+      };
+
+      result = await client.readContract({
+        address: tokenContract.address,
+        abi: tokenContract.abi,
+        functionName: "balanceOf",
+        args: [args[0] as `0x${string}`],
+      });
+    } else {
+      // Handle TokenLaunchpad contract calls
+      const contract = deployedContracts[31337].TokenLaunchpad;
+
+      result = await client.readContract({
+        address: contract.address as `0x${string}`,
+        abi: contract.abi,
+        functionName: functionName,
+        args: args,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.toString(),
+    });
+  } catch (error) {
+    console.error("Error calling contract function:", error);
+    return NextResponse.json({ success: false, error: "Failed to call contract function" }, { status: 500 });
+  }
+}

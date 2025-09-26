@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { IDKitWidget, ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
 import { toast } from "react-hot-toast";
-import { formatEther, parseEther } from "viem";
+import { decodeAbiParameters, formatEther, parseEther } from "viem";
 import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 // Import the deployed contract
@@ -12,6 +13,10 @@ import deployedContracts from "~~/contracts/deployedContracts";
 
 const LAUNCHPAD_ADDRESS = deployedContracts[31337].TokenLaunchpad.address;
 const LAUNCHPAD_ABI = deployedContracts[31337].TokenLaunchpad.abi;
+
+// World ID configuration
+const WORLD_ID_APP_ID = "app_staging_1234567890abcdef"; // Replace with your actual World ID App ID
+const WORLD_ID_ACTION = "mint_tokens"; // Replace with your action name
 
 interface TokenInfo {
   address: string;
@@ -31,8 +36,11 @@ export default function TradePage() {
   const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [ethAmount, setEthAmount] = useState("");
   const [tokenAmount, setTokenAmount] = useState("");
+  const [buyTokenAmount, setBuyTokenAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingToken, setIsLoadingToken] = useState(true);
+  const [worldIdProof, setWorldIdProof] = useState<ISuccessResult | null>(null);
+  const [isWorldIdVerified, setIsWorldIdVerified] = useState(false);
 
   const tokenAddress = params.tokenAddress as string;
 
@@ -40,11 +48,73 @@ export default function TradePage() {
     address: address,
   });
 
+  // Read user's token balance directly from contract
+  const { data: userTokenBalanceRaw } = useReadContract({
+    address: tokenAddress as `0x${string}`,
+    abi: [
+      {
+        name: "balanceOf",
+        type: "function",
+        stateMutability: "view",
+        inputs: [{ name: "account", type: "address" }],
+        outputs: [{ name: "", type: "uint256" }],
+      },
+    ],
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+  });
+
+  // Read required ETH for exact token purchase
+  const {
+    data: requiredEthRaw,
+    error: requiredEthError,
+    isLoading: isCalculatingCost,
+  } = useReadContract({
+    address: LAUNCHPAD_ADDRESS as `0x${string}`,
+    abi: LAUNCHPAD_ABI,
+    functionName: "getEthRequiredForTokens",
+    args: buyTokenAmount ? [tokenAddress, parseEther(buyTokenAmount)] : undefined,
+  });
+
+  // World ID success handler
+  const onWorldIdSuccess = (result: ISuccessResult) => {
+    console.log("World ID verification successful:", result);
+    setWorldIdProof(result);
+    setIsWorldIdVerified(true);
+    toast.success("World ID verification successful!");
+  };
+
+  // Helper function to decode proof string to uint256[8] array
+  const decodeProof = (proofString: string) => {
+    try {
+      const unpackedProof = decodeAbiParameters([{ type: "uint256[8]" }], proofString as `0x${string}`)[0];
+      return unpackedProof;
+    } catch (error) {
+      console.error("Error decoding proof:", error);
+      throw new Error("Invalid proof format");
+    }
+  };
+
+  // Debug logging
+  useEffect(() => {
+    if (buyTokenAmount && parseFloat(buyTokenAmount) > 0) {
+      console.log("Debug - buyTokenAmount:", buyTokenAmount);
+      console.log("Debug - requiredEthRaw:", requiredEthRaw);
+      console.log("Debug - requiredEthError:", requiredEthError);
+      console.log("Debug - isCalculatingCost:", isCalculatingCost);
+    }
+  }, [buyTokenAmount, requiredEthRaw, requiredEthError, isCalculatingCost]);
+
   const { writeContract: buyTokens, data: buyHash } = useWriteContract();
+  const { writeContract: buyTokensExact, data: buyExactHash } = useWriteContract();
   const { writeContract: sellTokens, data: sellHash } = useWriteContract();
 
   const { isLoading: isBuyLoading } = useWaitForTransactionReceipt({
     hash: buyHash,
+  });
+
+  const { isLoading: isBuyExactLoading } = useWaitForTransactionReceipt({
+    hash: buyExactHash,
   });
 
   const { isLoading: isSellLoading } = useWaitForTransactionReceipt({
@@ -107,19 +177,66 @@ export default function TradePage() {
       return;
     }
 
+    if (!isWorldIdVerified || !worldIdProof) {
+      toast.error("Please verify with World ID first");
+      return;
+    }
+
     try {
       setIsLoading(true);
       await buyTokens({
         address: LAUNCHPAD_ADDRESS,
         abi: LAUNCHPAD_ABI,
         functionName: "buyTokens",
-        args: [tokenAddress],
+        args: [
+          tokenAddress,
+          BigInt(worldIdProof.merkle_root),
+          BigInt(worldIdProof.nullifier_hash),
+          decodeProof(worldIdProof.proof),
+        ],
         value: parseEther(ethAmount),
       });
       toast.success("Token purchase initiated!");
       setEthAmount("");
     } catch (error) {
       console.error("Error buying tokens:", error);
+      toast.error("Failed to buy tokens");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBuyTokensExact = async () => {
+    if (!buyTokenAmount || !requiredEthRaw) {
+      toast.error("Please enter token amount");
+      return;
+    }
+
+    if (!isWorldIdVerified || !worldIdProof) {
+      toast.error("Please verify with World ID first");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      await buyTokensExact({
+        address: LAUNCHPAD_ADDRESS,
+        abi: LAUNCHPAD_ABI,
+        functionName: "buyTokensExact",
+        args: [
+          tokenAddress,
+          parseEther(buyTokenAmount),
+          BigInt(worldIdProof.merkle_root),
+          BigInt(worldIdProof.nullifier_hash),
+          decodeProof(worldIdProof.proof),
+        ],
+        value: requiredEthRaw,
+      });
+      toast.success("Exact token purchase initiated!");
+      setBuyTokenAmount("");
+    } catch (error) {
+      console.error("Error buying exact tokens:", error);
       toast.error("Failed to buy tokens");
     } finally {
       setIsLoading(false);
@@ -232,8 +349,14 @@ export default function TradePage() {
               <p className="text-lg sm:text-xl font-bold">{parseFloat(tokenInfo.totalSupply).toLocaleString()}</p>
             </div>
             <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Your Balance</p>
+              <p className="text-xs sm:text-sm text-base-content/70">Your ETH Balance</p>
               <p className="text-lg sm:text-xl font-bold">{userBalance ? formatEther(userBalance.value) : "0"} ETH</p>
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm text-base-content/70">Your {tokenInfo.symbol} Balance</p>
+              <p className="text-lg sm:text-xl font-bold">
+                {userTokenBalanceRaw ? formatEther(userTokenBalanceRaw) : "0"} {tokenInfo.symbol}
+              </p>
             </div>
           </div>
         </div>
@@ -243,7 +366,43 @@ export default function TradePage() {
           {/* Buy Tokens */}
           <div className="bg-base-200 rounded-lg p-4 sm:p-6">
             <h3 className="text-lg sm:text-xl font-bold mb-4 text-success">Buy {tokenInfo.symbol}</h3>
+
+            {/* World ID Verification */}
+            <div className="mb-4 p-3 rounded-lg bg-info/10 border border-info/20">
+              <div className="flex items-center gap-2 mb-2">
+                <InformationCircleIcon className="h-5 w-5 text-info" />
+                <span className="text-sm font-medium text-info">World ID Verification Required</span>
+              </div>
+              {!isWorldIdVerified ? (
+                <IDKitWidget
+                  app_id={WORLD_ID_APP_ID}
+                  action={WORLD_ID_ACTION}
+                  signal={address}
+                  onSuccess={onWorldIdSuccess}
+                  verification_level={VerificationLevel.Orb}
+                >
+                  {({ open }) => (
+                    <button onClick={open} className="btn btn-info btn-sm w-full">
+                      Verify with World ID
+                    </button>
+                  )}
+                </IDKitWidget>
+              ) : (
+                <div className="flex items-center gap-2 text-success">
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span className="text-sm">Verified with World ID</span>
+                </div>
+              )}
+            </div>
+
             <div className="space-y-4">
+              {/* Buy with ETH Amount */}
               <div>
                 <label className="label">
                   <span className="label-text text-sm sm:text-base">ETH Amount</span>
@@ -275,12 +434,66 @@ export default function TradePage() {
               <button
                 className="btn btn-success w-full btn-sm sm:btn-md"
                 onClick={handleBuyTokens}
-                disabled={isLoading || isBuyLoading || !ethAmount || parseFloat(ethAmount) <= 0}
+                disabled={isLoading || isBuyLoading || !ethAmount || parseFloat(ethAmount) <= 0 || !isWorldIdVerified}
               >
                 {isLoading || isBuyLoading ? (
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
-                  `Buy ${tokenInfo.symbol}`
+                  `Buy with ETH`
+                )}
+              </button>
+
+              <div className="divider">OR</div>
+
+              {/* Buy Exact Token Amount */}
+              <div>
+                <label className="label">
+                  <span className="label-text text-sm sm:text-base">Token Amount</span>
+                </label>
+                <input
+                  type="number"
+                  className="input input-bordered w-full text-sm sm:text-base"
+                  placeholder="1000"
+                  value={buyTokenAmount}
+                  onChange={e => setBuyTokenAmount(e.target.value)}
+                  step="1"
+                  min="0"
+                />
+              </div>
+              {buyTokenAmount && parseFloat(buyTokenAmount) > 0 && (
+                <div className="bg-success/10 rounded-lg p-3">
+                  <p className="text-sm text-success">
+                    {requiredEthError ? (
+                      <>Error calculating cost: {requiredEthError.message}</>
+                    ) : requiredEthRaw ? (
+                      <>
+                        Cost: <span className="font-bold">{formatEther(requiredEthRaw)} ETH</span>
+                      </>
+                    ) : isCalculatingCost ? (
+                      <>Calculating cost...</>
+                    ) : (
+                      <>Enter token amount to see cost</>
+                    )}
+                  </p>
+                </div>
+              )}
+              <button
+                className="btn btn-success w-full btn-sm sm:btn-md"
+                onClick={handleBuyTokensExact}
+                disabled={
+                  isLoading ||
+                  isBuyExactLoading ||
+                  !buyTokenAmount ||
+                  parseFloat(buyTokenAmount) <= 0 ||
+                  !requiredEthRaw ||
+                  !!requiredEthError ||
+                  !isWorldIdVerified
+                }
+              >
+                {isLoading || isBuyExactLoading ? (
+                  <span className="loading loading-spinner loading-sm"></span>
+                ) : (
+                  `Buy Exact ${tokenInfo.symbol}`
                 )}
               </button>
             </div>
@@ -345,6 +558,8 @@ export default function TradePage() {
                 <li>• 1% trading fee is applied to all transactions</li>
                 <li>• Early buyers get better prices as supply increases</li>
                 <li>• Token creator earns 1% of all trading fees</li>
+                <li>• World ID verification required for all purchases (sybil resistance)</li>
+                <li>• Daily limit: 100 tokens per person per day</li>
                 <li>• All calculations are estimates and may vary slightly</li>
               </ul>
             </div>
