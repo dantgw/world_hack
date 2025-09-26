@@ -9,7 +9,14 @@ describe("YourContract", function () {
   before(async () => {
     const [owner] = await ethers.getSigners();
     const yourContractFactory = await ethers.getContractFactory("YourContract");
-    yourContract = (await yourContractFactory.deploy(owner.address)) as YourContract;
+    // Mock addresses for WorldID parameters
+    const mockWorldId = ethers.Wallet.createRandom().address;
+    const mockExternalNullifierHash = ethers.keccak256(ethers.toUtf8Bytes("test"));
+    yourContract = (await yourContractFactory.deploy(
+      owner.address,
+      mockWorldId,
+      mockExternalNullifierHash,
+    )) as YourContract;
     await yourContract.waitForDeployment();
   });
 

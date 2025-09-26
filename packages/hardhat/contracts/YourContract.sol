@@ -3,6 +3,8 @@ pragma solidity >=0.8.0 <0.9.0;
 
 // Useful for debugging. Remove when deploying to a live network.
 import "hardhat/console.sol";
+import {ByteHasher} from './helpers/ByteHasher.sol';
+import {IWorldID} from './interfaces/IWorldID.sol';
 
 // Use openzeppelin to inherit battle-tested implementations (ERC20, ERC721, etc)
 // import "@openzeppelin/contracts/access/Ownable.sol";
@@ -19,6 +21,22 @@ contract YourContract {
 	bool public premium = false;
 	uint256 public totalCounter = 0;
 	mapping(address => uint) public userGreetingCounter;
+	
+	// WorldId
+	using ByteHasher for bytes;
+	error InvalidNullifier();
+	/// @dev The address of the World ID Router contract that will be used for verifying proofs
+
+		IWorldID internal immutable worldId;
+
+/// @dev The keccak256 hash of the externalNullifier (unique identifier of the action performed), combination of appId and action
+uint256 internal immutable externalNullifierHash;
+
+/// @dev The World ID group ID (1 for Orb-verified)
+uint256 internal immutable groupId = 1;
+
+/// @dev Whether a nullifier hash has been used already. Used to guarantee an action is only performed once by a single person
+mapping(uint256 => bool) internal nullifierHashes;
 
 	// Events: a way to emit log statements from smart contract that can be listened to by external parties
 	event GreetingChange(
@@ -30,8 +48,10 @@ contract YourContract {
 
 	// Constructor: Called once on contract deployment
 	// Check packages/hardhat/deploy/00_deploy_your_contract.ts
-	constructor(address _owner) {
+	constructor(address _owner, address _worldId, uint256 _externalNullifierHash) {
 		owner = _owner;
+		worldId = IWorldID(_worldId);
+		externalNullifierHash = _externalNullifierHash;
 	}
 
 	// Modifier: used to define a set of rules that must be met before or after a function is executed
