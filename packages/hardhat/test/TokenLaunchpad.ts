@@ -398,4 +398,93 @@ describe("TokenLaunchpad", function () {
       expect(remainingLimit).to.equal(ethers.parseEther("100"));
     });
   });
+
+  describe("Exact Token Purchase", function () {
+    let tokenAddress: string;
+
+    beforeEach(async function () {
+      // Create a token for testing
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
+      );
+      expect(event).to.not.be.undefined;
+      expect(event).to.not.be.null;
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+    });
+
+    it("Should buy exact amount of tokens", async function () {
+      const tokenAmount = ethers.parseEther("1000"); // Buy exactly 1000 tokens
+
+      // Get required ETH amount
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      // Buy tokens with exact amount
+      const tx = await launchpad
+        .connect(buyer)
+        .buyTokensExact(tokenAddress, tokenAmount, mockRoot, getMockNullifierHash(10), mockProof, {
+          value: requiredEth,
+        });
+      const receipt = await tx.wait();
+
+      // Check token balance
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const tokenBalance = await token.balanceOf(buyer.address);
+      expect(tokenBalance).to.equal(tokenAmount);
+    });
+
+    it("Should refund excess ETH when buying exact tokens", async function () {
+      const tokenAmount = ethers.parseEther("1000");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+      const excessEth = requiredEth + ethers.parseEther("0.1"); // Send extra ETH
+
+      const initialBalance = await ethers.provider.getBalance(buyer.address);
+
+      // Buy tokens with excess ETH
+      const tx = await launchpad
+        .connect(buyer)
+        .buyTokensExact(tokenAddress, tokenAmount, mockRoot, getMockNullifierHash(11), mockProof, { value: excessEth });
+      const receipt = await tx.wait();
+
+      const finalBalance = await ethers.provider.getBalance(buyer.address);
+      const gasUsed = receipt!.gasUsed * receipt!.gasPrice;
+
+      // Check that excess ETH was refunded
+      const expectedBalance = initialBalance - requiredEth - gasUsed;
+      expect(finalBalance).to.be.closeTo(expectedBalance, ethers.parseEther("0.001"));
+    });
+
+    it("Should fail when insufficient ETH is sent for exact tokens", async function () {
+      const tokenAmount = ethers.parseEther("1000");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+      const insufficientEth = requiredEth - ethers.parseEther("0.1"); // Send less ETH
+
+      await expect(
+        launchpad
+          .connect(buyer)
+          .buyTokensExact(tokenAddress, tokenAmount, mockRoot, getMockNullifierHash(12), mockProof, {
+            value: insufficientEth,
+          }),
+      ).to.be.revertedWith("Insufficient ETH sent");
+    });
+
+    it("Should calculate correct ETH requirement for tokens", async function () {
+      const tokenAmount = ethers.parseEther("1000");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      expect(requiredEth).to.be.gt(0);
+
+      // The required ETH should be greater than the base amount due to fees
+      const baseEth = await launchpad.calculateEthAmount(
+        (await launchpad.tokens(tokenAddress)).virtualEthReserves,
+        (await launchpad.tokens(tokenAddress)).virtualTokenReserves,
+        tokenAmount,
+      );
+
+      expect(requiredEth).to.be.gt(baseEth);
+    });
+  });
 });

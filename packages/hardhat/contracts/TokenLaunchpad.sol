@@ -218,6 +218,83 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev Buy specific amount of tokens with World ID verification
+     * @param tokenAddress Address of the token to buy
+     * @param tokenAmount Amount of tokens to buy
+     * @param root The World ID root to verify against
+     * @param nullifierHash The nullifier hash for this proof
+     * @param proof The zero-knowledge proof
+     */
+    function buyTokensExact(
+        address tokenAddress,
+        uint256 tokenAmount,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) external payable nonReentrant {
+        require(isToken[tokenAddress], "Token does not exist");
+        require(tokenAmount > 0, "Must buy tokens");
+        
+        // Verify World ID proof
+        _verifyWorldIDProof(msg.sender, root, nullifierHash, proof);
+        
+        TokenInfo storage tokenInfo = tokens[tokenAddress];
+        
+        // Check daily mint limit
+        _checkDailyMintLimit(msg.sender, tokenAmount);
+        
+        // Calculate required ETH amount using bonding curve
+        uint256 requiredEthAmount = calculateEthAmount(
+            tokenInfo.virtualEthReserves,
+            tokenInfo.virtualTokenReserves,
+            tokenAmount
+        );
+        
+        // Add fees to required ETH amount
+        uint256 totalRequiredEth = requiredEthAmount.mul(10000).div(10000 - FEE_RATE);
+        
+        require(msg.value >= totalRequiredEth, "Insufficient ETH sent");
+        
+        // Calculate actual fees
+        uint256 feeAmount = totalRequiredEth.mul(FEE_RATE).div(10000);
+        uint256 ethAfterFee = totalRequiredEth.sub(feeAmount);
+        
+        // Update virtual reserves
+        tokenInfo.virtualEthReserves = tokenInfo.virtualEthReserves.add(ethAfterFee);
+        tokenInfo.virtualTokenReserves = tokenInfo.virtualTokenReserves.sub(tokenAmount);
+        tokenInfo.totalSupply = tokenInfo.totalSupply.add(tokenAmount);
+        
+        // Mint tokens to buyer
+        LaunchpadToken(tokenAddress).mint(msg.sender, tokenAmount);
+        
+        // Update daily mint tracking
+        _updateDailyMintTracking(msg.sender, tokenAmount);
+        
+        // Distribute fees
+        uint256 creatorFee = feeAmount.mul(CREATOR_FEE_RATE).div(10000);
+        uint256 platformFee = feeAmount.sub(creatorFee);
+        
+        tokenInfo.creatorFees = tokenInfo.creatorFees.add(creatorFee);
+        platformFees = platformFees.add(platformFee);
+        
+        // Refund excess ETH
+        if (msg.value > totalRequiredEth) {
+            uint256 refund = msg.value.sub(totalRequiredEth);
+            (bool success, ) = msg.sender.call{value: refund}("");
+            require(success, "ETH refund failed");
+        }
+        
+        emit TokensBought(
+            tokenAddress,
+            msg.sender,
+            totalRequiredEth,
+            tokenAmount,
+            tokenInfo.virtualEthReserves,
+            tokenInfo.virtualTokenReserves
+        );
+    }
+    
+    /**
      * @dev Sell tokens for ETH
      * @param tokenAddress Address of the token to sell
      * @param tokenAmount Amount of tokens to sell
@@ -340,6 +417,29 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         
         TokenInfo memory tokenInfo = tokens[tokenAddress];
         return tokenInfo.virtualEthReserves.mul(1e18).div(tokenInfo.virtualTokenReserves);
+    }
+    
+    /**
+     * @dev Get ETH amount required to buy specific number of tokens (including fees)
+     * @param tokenAddress Address of the token
+     * @param tokenAmount Amount of tokens to buy
+     * @return ethAmount ETH amount required (including fees)
+     */
+    function getEthRequiredForTokens(address tokenAddress, uint256 tokenAmount) external view returns (uint256) {
+        require(isToken[tokenAddress], "Token does not exist");
+        require(tokenAmount > 0, "Token amount must be greater than 0");
+        
+        TokenInfo memory tokenInfo = tokens[tokenAddress];
+        
+        // Calculate required ETH amount using bonding curve
+        uint256 requiredEthAmount = calculateEthAmount(
+            tokenInfo.virtualEthReserves,
+            tokenInfo.virtualTokenReserves,
+            tokenAmount
+        );
+        
+        // Add fees to required ETH amount
+        return requiredEthAmount.mul(10000).div(10000 - FEE_RATE);
     }
     
     /**
