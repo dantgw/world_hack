@@ -12,12 +12,37 @@ describe("TokenLaunchpad", function () {
   const VIRTUAL_ETH_RESERVES = ethers.parseEther("200000");
   const VIRTUAL_TOKEN_RESERVES = ethers.parseEther("1000000000");
 
+  // Mock World ID proof parameters
+  const mockRoot = ethers.parseUnits("1234567890123456789012345678901234567890123456789012345678901234", 0);
+  const mockProof = [
+    ethers.parseUnits("1", 0),
+    ethers.parseUnits("2", 0),
+    ethers.parseUnits("3", 0),
+    ethers.parseUnits("4", 0),
+    ethers.parseUnits("5", 0),
+    ethers.parseUnits("6", 0),
+    ethers.parseUnits("7", 0),
+    ethers.parseUnits("8", 0),
+  ];
+
+  // Helper function to generate unique nullifier hash for each test
+  function getMockNullifierHash(testIndex: number): bigint {
+    return ethers.parseUnits(
+      (9876543210987654321098765432109876543210987654321098765432109876n + BigInt(testIndex)).toString(),
+      0,
+    );
+  }
+
   beforeEach(async function () {
     [owner, creator, buyer] = await ethers.getSigners();
 
-    // Deploy TokenLaunchpad
+    // Mock World ID contract for testing
+    const MockWorldID = await ethers.getContractFactory("MockWorldID");
+    const mockWorldID = await MockWorldID.deploy();
+
+    // Deploy TokenLaunchpad with World ID parameters
     const TokenLaunchpad = await ethers.getContractFactory("TokenLaunchpad");
-    launchpad = await TokenLaunchpad.deploy();
+    launchpad = await TokenLaunchpad.deploy(await mockWorldID.getAddress(), "app_test_1234567890abcdef", "mint_tokens");
   });
 
   describe("Token Creation", function () {
@@ -34,6 +59,7 @@ describe("TokenLaunchpad", function () {
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
       expect(event).to.not.be.undefined;
+      expect(event).to.not.be.null;
 
       const tokenAddress = launchpad.interface.parseLog(event as any).args.token;
       expect(await launchpad.isToken(tokenAddress)).to.be.true;
@@ -59,6 +85,7 @@ describe("TokenLaunchpad", function () {
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
       expect(event).to.not.be.undefined;
+      expect(event).to.not.be.null;
 
       const eventArgs = launchpad.interface.parseLog(event as any).args;
       expect(eventArgs.creator).to.equal(creator.address);
@@ -77,13 +104,15 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event!).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
     });
 
     it("Should buy tokens with ETH", async function () {
       const ethAmount = ethers.parseEther("1");
 
-      const tx = await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      const tx = await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(1), mockProof, { value: ethAmount });
       const receipt = await tx.wait();
 
       // Check token balance
@@ -106,7 +135,9 @@ describe("TokenLaunchpad", function () {
     it("Should sell tokens for ETH", async function () {
       // First buy some tokens
       const buyAmount = ethers.parseEther("1");
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: buyAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(2), mockProof, { value: buyAmount });
 
       const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
       const tokenBalance = await token.balanceOf(buyer.address);
@@ -144,7 +175,9 @@ describe("TokenLaunchpad", function () {
         ethAfterFee,
       );
 
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
 
       const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
       const actualTokenAmount = await token.balanceOf(buyer.address);
@@ -157,7 +190,9 @@ describe("TokenLaunchpad", function () {
       const fakeTokenAddress = ethers.Wallet.createRandom().address;
 
       await expect(
-        launchpad.connect(buyer).buyTokens(fakeTokenAddress, { value: ethers.parseEther("1") }),
+        launchpad
+          .connect(buyer)
+          .buyTokens(fakeTokenAddress, mockRoot, getMockNullifierHash(4), mockProof, { value: ethers.parseEther("1") }),
       ).to.be.revertedWith("Token does not exist");
     });
 
@@ -177,12 +212,14 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event!).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
     });
 
     it("Should distribute creator fees correctly", async function () {
       const ethAmount = ethers.parseEther("1");
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
 
       const tokenInfo = await launchpad.tokens(tokenAddress);
       expect(tokenInfo.creatorFees).to.be.gt(0);
@@ -200,7 +237,9 @@ describe("TokenLaunchpad", function () {
 
     it("Should accumulate platform fees", async function () {
       const ethAmount = ethers.parseEther("1");
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
 
       const platformFees = await launchpad.platformFees();
       expect(platformFees).to.be.gt(0);
@@ -208,7 +247,9 @@ describe("TokenLaunchpad", function () {
 
     it("Should allow owner to withdraw platform fees", async function () {
       const ethAmount = ethers.parseEther("1");
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
 
       const platformFees = await launchpad.platformFees();
       const initialBalance = await ethers.provider.getBalance(owner.address);
@@ -226,7 +267,9 @@ describe("TokenLaunchpad", function () {
 
     it("Should prevent non-creator from withdrawing creator fees", async function () {
       const ethAmount = ethers.parseEther("1");
-      await launchpad.connect(buyer).buyTokens(tokenAddress, { value: ethAmount });
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
 
       await expect(launchpad.connect(buyer).withdrawCreatorFees(tokenAddress)).to.be.revertedWith(
         "Only creator can withdraw",
@@ -243,7 +286,7 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event!).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
     });
 
     it("Should return correct token price", async function () {
@@ -259,6 +302,100 @@ describe("TokenLaunchpad", function () {
     it("Should return correct token count", async function () {
       const count = await launchpad.getTokenCount();
       expect(count).to.equal(1);
+    });
+  });
+
+  describe("World ID Integration", function () {
+    let tokenAddress: string;
+
+    beforeEach(async function () {
+      // Create a token for testing
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
+      );
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+    });
+
+    it("Should verify World ID proof when buying tokens", async function () {
+      const ethAmount = ethers.parseEther("1");
+
+      const tx = await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(5), mockProof, { value: ethAmount });
+      const receipt = await tx.wait();
+
+      // Check that WorldIDVerified event was emitted
+      const worldIDEvent = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("WorldIDVerified").topicHash,
+      );
+      expect(worldIDEvent).to.not.be.undefined;
+    });
+
+    it("Should prevent reusing the same nullifier hash", async function () {
+      const ethAmount = ethers.parseEther("1");
+      const sameNullifier = getMockNullifierHash(100);
+
+      // First call should succeed
+      await launchpad.connect(buyer).buyTokens(tokenAddress, mockRoot, sameNullifier, mockProof, { value: ethAmount });
+
+      // Second call with same nullifier should fail
+      await expect(
+        launchpad.connect(buyer).buyTokens(tokenAddress, mockRoot, sameNullifier, mockProof, { value: ethAmount }),
+      ).to.be.reverted;
+    });
+  });
+
+  describe("Daily Mint Limits", function () {
+    let tokenAddress: string;
+
+    beforeEach(async function () {
+      // Create a token for testing
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
+      );
+      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+    });
+
+    it("Should track daily minted amount", async function () {
+      const ethAmount = ethers.parseEther("1");
+
+      // First purchase
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(8), mockProof, { value: ethAmount });
+
+      const dailyMinted = await launchpad.getDailyMintedAmount(buyer.address);
+      expect(dailyMinted).to.be.gt(0);
+
+      const remainingLimit = await launchpad.getRemainingDailyLimit(buyer.address);
+      expect(remainingLimit).to.be.lt(ethers.parseEther("100"));
+    });
+
+    it("Should reset daily limit after 24 hours", async function () {
+      const ethAmount = ethers.parseEther("1");
+
+      // First purchase
+      await launchpad
+        .connect(buyer)
+        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(9), mockProof, { value: ethAmount });
+
+      // Simulate time passing (24 hours + 1 second)
+      await ethers.provider.send("evm_increaseTime", [86401]);
+      await ethers.provider.send("evm_mine", []);
+
+      const dailyMinted = await launchpad.getDailyMintedAmount(buyer.address);
+      expect(dailyMinted).to.equal(0);
+
+      const remainingLimit = await launchpad.getRemainingDailyLimit(buyer.address);
+      expect(remainingLimit).to.equal(ethers.parseEther("100"));
     });
   });
 });
