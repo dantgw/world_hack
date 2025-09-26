@@ -9,8 +9,8 @@ import { ArrowLeftIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/o
 // Import the deployed contract
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const LAUNCHPAD_ADDRESS = deployedContracts[31337].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[31337].TokenLaunchpad.abi;
+const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
+const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
 
 export default function CreateTokenPage() {
   const router = useRouter();

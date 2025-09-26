@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Token address is required" }, { status: 400 });
     }
 
-    const contract = deployedContracts[31337].TokenLaunchpad;
+    const contract = deployedContracts[84532].TokenLaunchpad;
 
     // Get token info from contract
     const tokenInfo = await client.readContract({
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Handle TokenLaunchpad contract calls
-      const contract = deployedContracts[31337].TokenLaunchpad;
+      const contract = deployedContracts[84532].TokenLaunchpad;
 
       result = await client.readContract({
         address: contract.address as `0x${string}`,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result.toString(),
+      data: String(result),
     });
   } catch (error) {
     console.error("Error calling contract function:", error);

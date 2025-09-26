@@ -9,8 +9,8 @@ import { Address } from "~~/components/scaffold-eth";
 // Import the deployed contract
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const LAUNCHPAD_ADDRESS = deployedContracts[31337].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[31337].TokenLaunchpad.abi;
+const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
+const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
 
 interface TokenInfo {
   address: string;
@@ -23,9 +23,86 @@ interface TokenInfo {
   virtualTokenReserves: string;
 }
 
+// Component to fetch individual token data
+const TokenCard = ({ tokenAddress }: { tokenAddress: string }) => {
+  const { data: tokenData } = useReadContract({
+    address: LAUNCHPAD_ADDRESS,
+    abi: LAUNCHPAD_ABI,
+    functionName: "tokens",
+    args: [tokenAddress as `0x${string}`],
+  });
+
+  const { data: tokenPrice } = useReadContract({
+    address: LAUNCHPAD_ADDRESS,
+    abi: LAUNCHPAD_ABI,
+    functionName: "getTokenPrice",
+    args: [tokenAddress as `0x${string}`],
+  });
+
+  if (!tokenData || !tokenPrice) {
+    return (
+      <div className="bg-base-200 rounded-lg p-3 sm:p-4 animate-pulse">
+        <div className="h-4 bg-base-300 rounded mb-2"></div>
+        <div className="h-3 bg-base-300 rounded mb-3"></div>
+        <div className="h-3 bg-base-300 rounded mb-2"></div>
+        <div className="h-3 bg-base-300 rounded mb-3"></div>
+        <div className="h-8 bg-base-300 rounded"></div>
+      </div>
+    );
+  }
+
+  const [
+    creator,
+    name,
+    symbol,
+    metadataURI,
+    virtualEthReserves,
+    virtualTokenReserves,
+    totalSupply,
+    creatorFees,
+    createdAt,
+  ] = tokenData as [string, string, string, string, bigint, bigint, bigint, bigint, bigint];
+
+  // Calculate price from reserves
+  const price = Number(formatEther(virtualEthReserves)) / Number(formatEther(virtualTokenReserves));
+
+  // Calculate market cap: price * totalSupply
+  const marketCap = price * Number(formatEther(totalSupply));
+
+  return (
+    <div className="bg-base-200 rounded-lg p-3 sm:p-4 hover:bg-base-300 transition-colors">
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="font-bold text-base sm:text-lg truncate">{name}</h3>
+          <p className="text-xs sm:text-sm text-base-content/70">{symbol}</p>
+        </div>
+        <div className="text-right ml-2">
+          <p className="text-xs sm:text-sm font-mono text-primary">{price.toFixed(8)} ETH</p>
+        </div>
+      </div>
+
+      <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+        <div className="flex justify-between">
+          <span className="text-base-content/70">Market Cap:</span>
+          <span className="font-mono text-right">{marketCap.toFixed(4)} ETH</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-base-content/70">Total Supply:</span>
+          <span className="font-mono text-right">{parseInt(formatEther(totalSupply)).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-base-300">
+        <Link href={`/trade/${tokenAddress}`} className="btn btn-xs sm:btn-sm btn-outline w-full">
+          Trade
+        </Link>
+      </div>
+    </div>
+  );
+};
+
 const Home = () => {
   const { address: connectedAddress, isConnected } = useAccount();
-  const [tokens, setTokens] = useState<TokenInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const { data: allTokensAddresses } = useReadContract({
@@ -34,58 +111,10 @@ const Home = () => {
     functionName: "getAllTokens",
   });
 
-  // Fetch token details for each address
   useEffect(() => {
-    const fetchTokenDetails = async () => {
-      if (!allTokensAddresses || !Array.isArray(allTokensAddresses) || allTokensAddresses.length === 0) {
-        setTokens([]);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const tokenPromises = allTokensAddresses.map(async (tokenAddress: string) => {
-          // Fetch token info from contract
-          const tokenInfo = await fetch(`/api/token-info?address=${tokenAddress}`).then(res => res.json());
-
-          if (!tokenInfo.success) {
-            console.error("Failed to fetch token info for:", tokenAddress);
-            return null;
-          }
-
-          const { name, symbol, virtualEthReserves, virtualTokenReserves, totalSupply } = tokenInfo.data;
-
-          // Calculate price: virtualEthReserves / virtualTokenReserves
-          const price =
-            Number(formatEther(BigInt(virtualEthReserves))) / Number(formatEther(BigInt(virtualTokenReserves)));
-
-          // Calculate market cap: price * totalSupply
-          const marketCap = price * Number(formatEther(BigInt(totalSupply)));
-
-          return {
-            address: tokenAddress,
-            name,
-            symbol,
-            price: price.toFixed(8),
-            totalSupply: formatEther(BigInt(totalSupply)),
-            marketCap: marketCap.toFixed(4),
-            virtualEthReserves: formatEther(BigInt(virtualEthReserves)),
-            virtualTokenReserves: formatEther(BigInt(virtualTokenReserves)),
-          };
-        });
-
-        const tokenDetails = await Promise.all(tokenPromises);
-        const validTokens = tokenDetails.filter(token => token !== null) as TokenInfo[];
-        setTokens(validTokens);
-      } catch (error) {
-        console.error("Error fetching token details:", error);
-        setTokens([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchTokenDetails();
+    if (allTokensAddresses !== undefined) {
+      setIsLoading(false);
+    }
   }, [allTokensAddresses]);
 
   if (!isConnected) {
@@ -140,7 +169,7 @@ const Home = () => {
           <div className="flex justify-center items-center py-12">
             <span className="loading loading-spinner loading-lg"></span>
           </div>
-        ) : tokens.length === 0 ? (
+        ) : !allTokensAddresses || allTokensAddresses.length === 0 ? (
           <div className="text-center py-12">
             <CurrencyDollarIcon className="h-16 w-16 mx-auto text-base-content/30 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No tokens found</h3>
@@ -152,38 +181,8 @@ const Home = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-            {tokens.map(token => (
-              <div
-                key={token.address}
-                className="bg-base-200 rounded-lg p-3 sm:p-4 hover:bg-base-300 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-base sm:text-lg truncate">{token.name}</h3>
-                    <p className="text-xs sm:text-sm text-base-content/70">{token.symbol}</p>
-                  </div>
-                  <div className="text-right ml-2">
-                    <p className="text-xs sm:text-sm font-mono text-primary">{token.price} ETH</p>
-                  </div>
-                </div>
-
-                <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-base-content/70">Market Cap:</span>
-                    <span className="font-mono text-right">{token.marketCap} ETH</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-base-content/70">Total Supply:</span>
-                    <span className="font-mono text-right">{parseInt(token.totalSupply).toLocaleString()}</span>
-                  </div>
-                </div>
-
-                <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-base-300">
-                  <Link href={`/trade/${token.address}`} className="btn btn-xs sm:btn-sm btn-outline w-full">
-                    Trade
-                  </Link>
-                </div>
-              </div>
+            {allTokensAddresses.map((tokenAddress: string) => (
+              <TokenCard key={tokenAddress} tokenAddress={tokenAddress} />
             ))}
           </div>
         )}

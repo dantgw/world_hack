@@ -11,12 +11,12 @@ import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from
 // Import the deployed contract
 import deployedContracts from "~~/contracts/deployedContracts";
 
-const LAUNCHPAD_ADDRESS = deployedContracts[31337].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[31337].TokenLaunchpad.abi;
+const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
+const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
 
 // World ID configuration
-const WORLD_ID_APP_ID = "app_staging_1234567890abcdef"; // Replace with your actual World ID App ID
-const WORLD_ID_ACTION = "mint_tokens"; // Replace with your action name
+const WORLD_ID_APP_ID = "app_staging_63bdbf24a4508f0f971c7311107ffa1c"; // Replace with your actual World ID App ID
+const WORLD_ID_ACTION = "buy-token"; // Replace with your action name
 
 interface TokenInfo {
   address: string;
@@ -33,16 +33,33 @@ export default function TradePage() {
   const params = useParams();
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null);
   const [ethAmount, setEthAmount] = useState("");
   const [tokenAmount, setTokenAmount] = useState("");
   const [buyTokenAmount, setBuyTokenAmount] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingToken, setIsLoadingToken] = useState(true);
   const [worldIdProof, setWorldIdProof] = useState<ISuccessResult | null>(null);
   const [isWorldIdVerified, setIsWorldIdVerified] = useState(false);
 
   const tokenAddress = params.tokenAddress as string;
+
+  // Read token data directly from contract
+  const {
+    data: tokenData,
+    isLoading: isLoadingToken,
+    error: tokenError,
+  } = useReadContract({
+    address: LAUNCHPAD_ADDRESS as `0x${string}`,
+    abi: LAUNCHPAD_ABI,
+    functionName: "tokens",
+    args: tokenAddress ? [tokenAddress as `0x${string}`] : undefined,
+  });
+
+  const { data: tokenPrice } = useReadContract({
+    address: LAUNCHPAD_ADDRESS as `0x${string}`,
+    abi: LAUNCHPAD_ABI,
+    functionName: "getTokenPrice",
+    args: tokenAddress ? [tokenAddress as `0x${string}`] : undefined,
+  });
 
   const { data: userBalance } = useBalance({
     address: address,
@@ -121,55 +138,49 @@ export default function TradePage() {
     hash: sellHash,
   });
 
+  // Compute token info from contract data
+  const tokenInfo =
+    tokenData && tokenPrice
+      ? (() => {
+          const [
+            creator,
+            name,
+            symbol,
+            metadataURI,
+            virtualEthReserves,
+            virtualTokenReserves,
+            totalSupply,
+            creatorFees,
+            createdAt,
+          ] = tokenData as [string, string, string, string, bigint, bigint, bigint, bigint, bigint];
+
+          // Calculate price from reserves
+          const price = Number(formatEther(virtualEthReserves)) / Number(formatEther(virtualTokenReserves));
+
+          // Calculate market cap: price * totalSupply
+          const marketCap = price * Number(formatEther(totalSupply));
+
+          return {
+            address: tokenAddress,
+            name,
+            symbol,
+            price: price.toFixed(8),
+            totalSupply: formatEther(totalSupply),
+            marketCap: marketCap.toFixed(4),
+            virtualEthReserves: formatEther(virtualEthReserves),
+            virtualTokenReserves: formatEther(virtualTokenReserves),
+          };
+        })()
+      : null;
+
+  // Handle token not found error
   useEffect(() => {
-    const fetchTokenDetails = async () => {
-      if (!tokenAddress) {
-        setIsLoadingToken(false);
-        return;
-      }
-
-      try {
-        setIsLoadingToken(true);
-        const response = await fetch(`/api/token-info?address=${tokenAddress}`);
-        const tokenInfo = await response.json();
-
-        if (!tokenInfo.success) {
-          console.error("Failed to fetch token info for:", tokenAddress);
-          toast.error("Token not found");
-          router.push("/");
-          return;
-        }
-
-        const { name, symbol, virtualEthReserves, virtualTokenReserves, totalSupply } = tokenInfo.data;
-
-        // Calculate price: virtualEthReserves / virtualTokenReserves
-        const price =
-          Number(formatEther(BigInt(virtualEthReserves))) / Number(formatEther(BigInt(virtualTokenReserves)));
-
-        // Calculate market cap: price * totalSupply
-        const marketCap = price * Number(formatEther(BigInt(totalSupply)));
-
-        setTokenInfo({
-          address: tokenAddress,
-          name,
-          symbol,
-          price: price.toFixed(8),
-          totalSupply: formatEther(BigInt(totalSupply)),
-          marketCap: marketCap.toFixed(4),
-          virtualEthReserves: formatEther(BigInt(virtualEthReserves)),
-          virtualTokenReserves: formatEther(BigInt(virtualTokenReserves)),
-        });
-      } catch (error) {
-        console.error("Error fetching token details:", error);
-        toast.error("Failed to load token information");
-        router.push("/");
-      } finally {
-        setIsLoadingToken(false);
-      }
-    };
-
-    fetchTokenDetails();
-  }, [tokenAddress, router]);
+    if (tokenError) {
+      console.error("Failed to fetch token info for:", tokenAddress);
+      toast.error("Token not found");
+      router.push("/");
+    }
+  }, [tokenError, tokenAddress, router]);
 
   const handleBuyTokens = async () => {
     if (!ethAmount) {
