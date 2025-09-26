@@ -7,7 +7,7 @@ import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, 
 import { CurrencyDollarIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 
 // Mock contract addresses - replace with actual deployed addresses
-const LAUNCHPAD_ADDRESS = "0x0000000000000000000000000000000000000000";
+const LAUNCHPAD_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const LAUNCHPAD_ABI = [
   {
     inputs: [
