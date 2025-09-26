@@ -19,7 +19,6 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     
     // State variables
     mapping(address => TokenInfo) public tokens;
-    mapping(address => mapping(address => uint256)) public userBalances;
     mapping(address => bool) public isToken;
     address[] public allTokens;
     

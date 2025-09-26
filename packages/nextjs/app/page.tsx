@@ -1,86 +1,194 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+import { formatEther } from "viem";
+import { useAccount, useReadContract } from "wagmi";
+import { CurrencyDollarIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
+// Import the deployed contract
+import deployedContracts from "~~/contracts/deployedContracts";
 
-const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+const LAUNCHPAD_ADDRESS = deployedContracts[31337].TokenLaunchpad.address;
+const LAUNCHPAD_ABI = deployedContracts[31337].TokenLaunchpad.abi;
+
+interface TokenInfo {
+  address: string;
+  name: string;
+  symbol: string;
+  price: string;
+  marketCap: string;
+  totalSupply: string;
+  virtualEthReserves: string;
+  virtualTokenReserves: string;
+}
+
+const Home = () => {
+  const { address: connectedAddress, isConnected } = useAccount();
+  const [tokens, setTokens] = useState<TokenInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const { data: allTokensAddresses } = useReadContract({
+    address: LAUNCHPAD_ADDRESS,
+    abi: LAUNCHPAD_ABI,
+    functionName: "getAllTokens",
+  });
+
+  // Fetch token details for each address
+  useEffect(() => {
+    const fetchTokenDetails = async () => {
+      if (!allTokensAddresses || !Array.isArray(allTokensAddresses) || allTokensAddresses.length === 0) {
+        setTokens([]);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const tokenPromises = allTokensAddresses.map(async (tokenAddress: string) => {
+          // Fetch token info from contract
+          const tokenInfo = await fetch(`/api/token-info?address=${tokenAddress}`).then(res => res.json());
+
+          if (!tokenInfo.success) {
+            console.error("Failed to fetch token info for:", tokenAddress);
+            return null;
+          }
+
+          const { name, symbol, virtualEthReserves, virtualTokenReserves, totalSupply } = tokenInfo.data;
+
+          // Calculate price: virtualEthReserves / virtualTokenReserves
+          const price =
+            Number(formatEther(BigInt(virtualEthReserves))) / Number(formatEther(BigInt(virtualTokenReserves)));
+
+          // Calculate market cap: price * totalSupply
+          const marketCap = price * Number(formatEther(BigInt(totalSupply)));
+
+          return {
+            address: tokenAddress,
+            name,
+            symbol,
+            price: price.toFixed(8),
+            totalSupply: formatEther(BigInt(totalSupply)),
+            marketCap: marketCap.toFixed(4),
+            virtualEthReserves: formatEther(BigInt(virtualEthReserves)),
+            virtualTokenReserves: formatEther(BigInt(virtualTokenReserves)),
+          };
+        });
+
+        const tokenDetails = await Promise.all(tokenPromises);
+        const validTokens = tokenDetails.filter(token => token !== null) as TokenInfo[];
+        setTokens(validTokens);
+      } catch (error) {
+        console.error("Error fetching token details:", error);
+        setTokens([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTokenDetails();
+  }, [allTokensAddresses]);
+
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-base-100 flex items-center justify-center">
+        <div className="text-center">
+          <CurrencyDollarIcon className="h-16 w-16 mx-auto text-primary mb-4" />
+          <h1 className="text-2xl font-bold mb-4">Connect Your Wallet</h1>
+          <p className="text-base-content/70">Please connect your wallet to view tokens</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <div className="block text-4xl font-bold">
-              <div className="inline-block relative w-10 h-10 align-bottom mr-2">
-                <Image alt="Base logo" className="cursor-pointer" fill src="/Base_Symbol_Blue.svg" />
-              </div>
-              Scaffold-Base
+    <div className="min-h-screen bg-base-100">
+      {/* Header */}
+      <div className="bg-base-200 shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-primary">Token Launchpad</h1>
+              <p className="text-xs sm:text-sm text-base-content/70">Discover and trade tokens</p>
             </div>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
-          </div>
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
-
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <RocketLaunchIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Create and trade tokens with the{" "}
-                <Link href="/launchpad" passHref className="link">
-                  Token Launchpad
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
+            <Link href="/create-token" className="btn btn-primary btn-sm sm:btn-md w-full sm:w-auto">
+              <PlusIcon className="h-4 w-4 mr-2" />
+              <span className="hidden xs:inline">Create Token</span>
+              <span className="xs:hidden">Create</span>
+            </Link>
           </div>
         </div>
       </div>
-    </>
+
+      {/* User Info */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="bg-base-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+            <span className="text-xs sm:text-sm text-base-content/70">Connected Address:</span>
+            <Address address={connectedAddress} />
+          </div>
+        </div>
+      </div>
+
+      {/* Tokens Grid */}
+      <div className="container mx-auto px-4 pb-8">
+        <div className="mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold mb-2">All Tokens</h2>
+          <p className="text-sm sm:text-base text-base-content/70">Browse all available tokens and their market caps</p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <span className="loading loading-spinner loading-lg"></span>
+          </div>
+        ) : tokens.length === 0 ? (
+          <div className="text-center py-12">
+            <CurrencyDollarIcon className="h-16 w-16 mx-auto text-base-content/30 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No tokens found</h3>
+            <p className="text-base-content/70 mb-4">Be the first to create a token!</p>
+            <Link href="/create-token" className="btn btn-primary">
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Create First Token
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+            {tokens.map(token => (
+              <div
+                key={token.address}
+                className="bg-base-200 rounded-lg p-3 sm:p-4 hover:bg-base-300 transition-colors"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-base sm:text-lg truncate">{token.name}</h3>
+                    <p className="text-xs sm:text-sm text-base-content/70">{token.symbol}</p>
+                  </div>
+                  <div className="text-right ml-2">
+                    <p className="text-xs sm:text-sm font-mono text-primary">{token.price} ETH</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-base-content/70">Market Cap:</span>
+                    <span className="font-mono text-right">{token.marketCap} ETH</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-base-content/70">Total Supply:</span>
+                    <span className="font-mono text-right">{parseInt(token.totalSupply).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-base-300">
+                  <Link href={`/trade/${token.address}`} className="btn btn-xs sm:btn-sm btn-outline w-full">
+                    Trade
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
