@@ -137,7 +137,9 @@ const Home = () => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-primary">Token Launchpad</h1>
-              <p className="text-xs sm:text-sm text-base-content/70">Discover and trade tokens</p>
+              <p className="text-xs sm:text-sm text-base-content/70">
+                Discover and trade tokens • 1 token per day per user
+              </p>
             </div>
             <Link href="/create-token" className="btn btn-primary btn-sm sm:btn-md w-full sm:w-auto">
               <PlusIcon className="h-4 w-4 mr-2" />
@@ -160,6 +162,22 @@ const Home = () => {
 
       {/* Tokens Grid */}
       <div className="container mx-auto px-4 pb-8">
+        {/* Daily Limit Info */}
+        <div className="bg-info/10 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <CurrencyDollarIcon className="h-5 w-5 text-info mr-2 mt-1 flex-shrink-0" />
+            <div>
+              <h3 className="font-bold text-info mb-2 text-sm sm:text-base">Daily Creation Limits</h3>
+              <ul className="text-xs sm:text-sm space-y-1 text-base-content/70">
+                <li>• Each user can create a maximum of 1 token per day</li>
+                <li>• World ID verification required for token creation</li>
+                <li>• 24-hour cooldown between token creations</li>
+                <li>• This ensures fair distribution and prevents spam</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-bold mb-2">All Tokens</h2>
           <p className="text-sm sm:text-base text-base-content/70">Browse all available tokens and their market caps</p>

@@ -792,7 +792,7 @@ const deployedContracts = {
   },
   84532: {
     TokenLaunchpad: {
-      address: "0x53f14D0d76Be097FB5BAaCab862F8C1099C056e0",
+      address: "0xF9e92B19E3C458fcc97c372A3C5dc05f27785028",
       abi: [
         {
           inputs: [
@@ -811,6 +811,11 @@ const deployedContracts = {
               name: "_action",
               type: "string",
             },
+            {
+              internalType: "string",
+              name: "_tokenCreationAction",
+              type: "string",
+            },
           ],
           stateMutability: "nonpayable",
           type: "constructor",
@@ -822,7 +827,12 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "InvalidNullifier",
+          name: "InvalidMintAmount",
+          type: "error",
+        },
+        {
+          inputs: [],
+          name: "TokenCreationCooldownNotMet",
           type: "error",
         },
         {
@@ -929,6 +939,37 @@ const deployedContracts = {
             },
           ],
           name: "TokenCreated",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "user",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "lastCreationTime",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "cooldownEndTime",
+              type: "uint256",
+            },
+          ],
+          name: "TokenCreationCooldownExceeded",
           type: "event",
         },
         {
@@ -1051,7 +1092,7 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "DAILY_MINT_LIMIT",
+          name: "FEE_RATE",
           outputs: [
             {
               internalType: "uint256",
@@ -1064,7 +1105,7 @@ const deployedContracts = {
         },
         {
           inputs: [],
-          name: "FEE_RATE",
+          name: "INITIAL_MINT_LIMIT",
           outputs: [
             {
               internalType: "uint256",
@@ -1282,6 +1323,21 @@ const deployedContracts = {
               name: "metadataURI",
               type: "string",
             },
+            {
+              internalType: "uint256",
+              name: "root",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256[8]",
+              name: "proof",
+              type: "uint256[8]",
+            },
           ],
           name: "createToken",
           outputs: [
@@ -1302,25 +1358,6 @@ const deployedContracts = {
               internalType: "address[]",
               name: "",
               type: "address[]",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [
-            {
-              internalType: "address",
-              name: "user",
-              type: "address",
-            },
-          ],
-          name: "getDailyMintedAmount",
-          outputs: [
-            {
-              internalType: "uint256",
-              name: "",
-              type: "uint256",
             },
           ],
           stateMutability: "view",
@@ -1353,12 +1390,17 @@ const deployedContracts = {
         {
           inputs: [
             {
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+            {
               internalType: "address",
-              name: "user",
+              name: "tokenAddress",
               type: "address",
             },
           ],
-          name: "getRemainingDailyLimit",
+          name: "getRemainingLimit",
           outputs: [
             {
               internalType: "uint256",
@@ -1376,6 +1418,30 @@ const deployedContracts = {
             {
               internalType: "uint256",
               name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "nullifierHash",
+              type: "uint256",
+            },
+          ],
+          name: "getTokenCreationCooldown",
+          outputs: [
+            {
+              internalType: "bool",
+              name: "canCreateNow",
+              type: "bool",
+            },
+            {
+              internalType: "uint256",
+              name: "nextCreationTime",
               type: "uint256",
             },
           ],
@@ -1408,6 +1474,30 @@ const deployedContracts = {
               name: "",
               type: "address",
             },
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "initialTokenPurchasesMapping",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
           ],
           name: "isToken",
           outputs: [
@@ -1415,6 +1505,25 @@ const deployedContracts = {
               internalType: "bool",
               name: "",
               type: "bool",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          name: "lastTokenCreationTime",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
             },
           ],
           stateMutability: "view",

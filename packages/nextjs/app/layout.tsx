@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import MiniKitProvider from "../components/minikit-provider";
 import "@rainbow-me/rainbowkit/styles.css";
 import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
@@ -11,8 +12,12 @@ export const metadata = getMetadata({
 });
 
 const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
+  const ErudaProvider = dynamic(() => import("../components/Eruda").then(c => c.ErudaProvider), {
+    ssr: false,
+  });
   return (
     <html suppressHydrationWarning>
+      {/* <ErudaProvider> */}
       <MiniKitProvider>
         <body>
           <ThemeProvider enableSystem>
@@ -20,6 +25,7 @@ const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
           </ThemeProvider>
         </body>
       </MiniKitProvider>
+      {/* </ErudaProvider> */}
     </html>
   );
 };

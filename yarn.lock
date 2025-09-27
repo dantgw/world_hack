@@ -2680,6 +2680,7 @@ __metadata:
     blo: ^1.0.1
     burner-connector: ^0.0.8
     daisyui: 4.5.0
+    eruda: ^3.4.3
     eslint: ^8.15.0
     eslint-config-next: ^14.0.4
     eslint-config-prettier: ^9.1.0
@@ -6754,6 +6755,13 @@ __metadata:
   version: 2.0.3
   resolution: "err-code@npm:2.0.3"
   checksum: 8b7b1be20d2de12d2255c0bc2ca638b7af5171142693299416e6a9339bd7d88fc8d7707d913d78e0993176005405a236b066b45666b27b797252c771156ace54
+  languageName: node
+  linkType: hard
+
+"eruda@npm:^3.4.3":
+  version: 3.4.3
+  resolution: "eruda@npm:3.4.3"
+  checksum: ec1c8a19aa655ea4d376544cb611cabf52d5d0780e7dba9fabc6f1fb85d40f320248367fd15518efb0549c31ca07e5b1022d15266d20d0d962d56ddbda0360d6
   languageName: node
   linkType: hard
 

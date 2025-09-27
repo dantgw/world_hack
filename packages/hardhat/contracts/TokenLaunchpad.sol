@@ -33,6 +33,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     // World ID variables
     IWorldID internal immutable worldId;
     uint256 internal immutable externalNullifierHash;
+    uint256 internal immutable tokenCreationNullifierHash;
     uint256 internal immutable groupId = 1; // Orb-verified users only
     
     // Sybil resistance and daily limits
@@ -40,6 +41,9 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     mapping(address => mapping (uint256 => uint256)) public initialTokenPurchasesMapping;
     mapping(address => uint256) internal dailyMintedAmount;
     mapping(address => uint256) internal lastMintDay;
+    
+    // Token creation cooldown tracking
+    mapping(uint256 => uint256) public lastTokenCreationTime;
     
     // Events
     event TokenCreated(
@@ -86,6 +90,13 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         uint256 dailyLimit
     );
     
+    event TokenCreationCooldownExceeded(
+        address indexed user,
+        uint256 nullifierHash,
+        uint256 lastCreationTime,
+        uint256 cooldownEndTime
+    );
+    
     // Structs
     struct TokenInfo {
         address creator;
@@ -105,17 +116,25 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     /// @notice Thrown when daily mint limit is exceeded
     error DailyLimitExceededError();
     
+    /// @notice Thrown when token creation cooldown is not met
+    error TokenCreationCooldownNotMet();
+    
     /// @param _worldId The address of the WorldIDRouter that will verify the proofs
     /// @param _appId The World ID App ID (from Developer Portal)
     /// @param _action The World ID Action (from Developer Portal)
+    /// @param _tokenCreationAction The World ID Action for token creation (from Developer Portal)
     constructor(
         IWorldID _worldId,
         string memory _appId,
-        string memory _action
+        string memory _action,
+        string memory _tokenCreationAction
     ) Ownable() {
         worldId = _worldId;
         externalNullifierHash = abi
             .encodePacked(abi.encodePacked(_appId).hashToField(), _action)
+            .hashToField();
+        tokenCreationNullifierHash = abi
+            .encodePacked(abi.encodePacked(_appId).hashToField(), _tokenCreationAction)
             .hashToField();
     }
     
@@ -124,12 +143,27 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
      * @param name Token name
      * @param symbol Token symbol
      * @param metadataURI Token metadata URI
+     * @param root The World ID root to verify against
+     * @param nullifierHash The nullifier hash for this proof
+     * @param proof The zero-knowledge proof
      */
     function createToken(
         string memory name,
         string memory symbol,
-        string memory metadataURI
+        string memory metadataURI,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
     ) external nonReentrant returns (address) {
+        // Check 24-hour cooldown
+        _checkTokenCreationCooldown(nullifierHash);
+        
+        // Verify World ID proof for token creation
+        _verifyTokenCreationProof(msg.sender, root, nullifierHash, proof);
+        
+        // Update last creation time
+        lastTokenCreationTime[nullifierHash] = block.timestamp;
+        
         // Deploy new ERC20 token
         LaunchpadToken token = new LaunchpadToken(name, symbol, msg.sender);
         address tokenAddress = address(token);
@@ -465,6 +499,26 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     }
     
     /**
+     * @dev Get when a user can create their next token
+     * @param nullifierHash The nullifier hash to check
+     * @return canCreateNow True if user can create a token now
+     * @return nextCreationTime Timestamp when user can create next token (0 if can create now)
+     */
+    function getTokenCreationCooldown(uint256 nullifierHash) external view returns (bool canCreateNow, uint256 nextCreationTime) {
+        uint256 lastCreation = lastTokenCreationTime[nullifierHash];
+        if (lastCreation == 0) {
+            return (true, 0);
+        }
+        
+        uint256 cooldownEndTime = lastCreation + SECONDS_IN_DAY;
+        if (block.timestamp >= cooldownEndTime) {
+            return (true, 0);
+        } else {
+            return (false, cooldownEndTime);
+        }
+    }
+    
+    /**
      * @dev Internal function to verify purchase limit within the first 24h
      */
     function _verifyWorldIDProof(
@@ -491,8 +545,42 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     /**
      * @dev Internal function to check daily mint limit
      */
-    function _checkInitialMintLimit(uint256 nullifierHash, address tokenAddress,uint256 tokenAmount) internal {
+    function _checkInitialMintLimit(uint256 nullifierHash, address tokenAddress,uint256 tokenAmount) internal view {
         if (initialTokenPurchasesMapping[tokenAddress][nullifierHash] + tokenAmount > INITIAL_MINT_LIMIT) revert InvalidMintAmount();
+    }
+    
+    /**
+     * @dev Internal function to check token creation cooldown
+     */
+    function _checkTokenCreationCooldown(uint256 nullifierHash) internal {
+        uint256 lastCreation = lastTokenCreationTime[nullifierHash];
+        if (lastCreation > 0 && block.timestamp - lastCreation < SECONDS_IN_DAY) {
+            uint256 cooldownEndTime = lastCreation + SECONDS_IN_DAY;
+            emit TokenCreationCooldownExceeded(msg.sender, nullifierHash, lastCreation, cooldownEndTime);
+            revert TokenCreationCooldownNotMet();
+        }
+    }
+    
+    /**
+     * @dev Internal function to verify token creation World ID proof
+     */
+    function _verifyTokenCreationProof(
+        address signal,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    ) internal {
+        // Verify the World ID proof for token creation
+        worldId.verifyProof(
+            root,
+            groupId,
+            abi.encodePacked(signal).hashToField(),
+            nullifierHash,
+            tokenCreationNullifierHash,
+            proof
+        );
+        
+        emit WorldIDVerified(signal, nullifierHash);
     }
     
     

@@ -33,6 +33,14 @@ describe("TokenLaunchpad", function () {
     );
   }
 
+  // Helper function to generate unique nullifier hash for token creation tests
+  function getTokenCreationNullifierHash(testIndex: number): bigint {
+    return ethers.parseUnits(
+      (1111111111111111111111111111111111111111111111111111111111111111n + BigInt(testIndex)).toString(),
+      0,
+    );
+  }
+
   beforeEach(async function () {
     [owner, creator, buyer] = await ethers.getSigners();
 
@@ -42,7 +50,12 @@ describe("TokenLaunchpad", function () {
 
     // Deploy TokenLaunchpad with World ID parameters
     const TokenLaunchpad = await ethers.getContractFactory("TokenLaunchpad");
-    launchpad = await TokenLaunchpad.deploy(await mockWorldID.getAddress(), "app_test_1234567890abcdef", "mint_tokens");
+    launchpad = await TokenLaunchpad.deploy(
+      await mockWorldID.getAddress(),
+      "app_test_1234567890abcdef",
+      "mint_tokens",
+      "create_token",
+    );
   });
 
   describe("Token Creation", function () {
@@ -51,7 +64,9 @@ describe("TokenLaunchpad", function () {
       const tokenSymbol = "TEST";
       const metadataURI = "https://example.com/metadata.json";
 
-      const tx = await launchpad.connect(creator).createToken(tokenName, tokenSymbol, metadataURI);
+      const tx = await launchpad
+        .connect(creator)
+        .createToken(tokenName, tokenSymbol, metadataURI, mockRoot, getTokenCreationNullifierHash(1), mockProof);
       const receipt = await tx.wait();
 
       // Find the token address from events
@@ -78,7 +93,9 @@ describe("TokenLaunchpad", function () {
       const tokenSymbol = "TEST";
       const metadataURI = "https://example.com/metadata.json";
 
-      const tx = await launchpad.connect(creator).createToken(tokenName, tokenSymbol, metadataURI);
+      const tx = await launchpad
+        .connect(creator)
+        .createToken(tokenName, tokenSymbol, metadataURI, mockRoot, getTokenCreationNullifierHash(2), mockProof);
       const receipt = await tx.wait();
 
       const event = receipt?.logs.find(
@@ -93,13 +110,94 @@ describe("TokenLaunchpad", function () {
       expect(eventArgs.symbol).to.equal(tokenSymbol);
       expect(eventArgs.metadataURI).to.equal(metadataURI);
     });
+
+    it("Should prevent creating multiple tokens within 24 hours", async function () {
+      const tokenName1 = "Test Token 1";
+      const tokenSymbol1 = "TEST1";
+      const metadataURI1 = "https://example.com/metadata1.json";
+
+      const tokenName2 = "Test Token 2";
+      const tokenSymbol2 = "TEST2";
+      const metadataURI2 = "https://example.com/metadata2.json";
+
+      // Create first token
+      await launchpad
+        .connect(creator)
+        .createToken(tokenName1, tokenSymbol1, metadataURI1, mockRoot, getTokenCreationNullifierHash(3), mockProof);
+
+      // Try to create second token with same nullifier hash - should fail
+      await expect(
+        launchpad
+          .connect(creator)
+          .createToken(tokenName2, tokenSymbol2, metadataURI2, mockRoot, getTokenCreationNullifierHash(3), mockProof),
+      ).to.be.revertedWithCustomError(launchpad, "TokenCreationCooldownNotMet");
+    });
+
+    it("Should allow creating tokens after 24 hours", async function () {
+      const tokenName1 = "Test Token 1";
+      const tokenSymbol1 = "TEST1";
+      const metadataURI1 = "https://example.com/metadata1.json";
+
+      const tokenName2 = "Test Token 2";
+      const tokenSymbol2 = "TEST2";
+      const metadataURI2 = "https://example.com/metadata2.json";
+
+      // Create first token
+      await launchpad
+        .connect(creator)
+        .createToken(tokenName1, tokenSymbol1, metadataURI1, mockRoot, getTokenCreationNullifierHash(4), mockProof);
+
+      // Fast forward time by 25 hours (more than 24 hours)
+      await ethers.provider.send("evm_increaseTime", [25 * 60 * 60]); // 25 hours
+      await ethers.provider.send("evm_mine", []);
+
+      // Should be able to create second token now
+      const tx = await launchpad
+        .connect(creator)
+        .createToken(tokenName2, tokenSymbol2, metadataURI2, mockRoot, getTokenCreationNullifierHash(4), mockProof);
+      const receipt = await tx.wait();
+
+      // Verify second token was created
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
+      );
+      expect(event).to.not.be.undefined;
+    });
+
+    it("Should track token creation cooldown correctly", async function () {
+      const nullifierHash = getTokenCreationNullifierHash(5);
+
+      // Initially should be able to create
+      let [canCreateNow, nextCreationTime] = await launchpad.getTokenCreationCooldown(nullifierHash);
+      expect(canCreateNow).to.be.true;
+      expect(nextCreationTime).to.equal(0);
+
+      // Create a token
+      await launchpad.connect(creator).createToken("Test Token", "TEST", "", mockRoot, nullifierHash, mockProof);
+
+      // Should not be able to create immediately
+      [canCreateNow, nextCreationTime] = await launchpad.getTokenCreationCooldown(nullifierHash);
+      expect(canCreateNow).to.be.false;
+      expect(nextCreationTime).to.be.gt(0);
+
+      // Fast forward time by 25 hours
+      await ethers.provider.send("evm_increaseTime", [25 * 60 * 60]); // 25 hours
+      await ethers.provider.send("evm_mine", []);
+
+      // Should be able to create again
+      [canCreateNow, nextCreationTime] = await launchpad.getTokenCreationCooldown(nullifierHash);
+      expect(canCreateNow).to.be.true;
+      expect(nextCreationTime).to.equal(0);
+    });
   });
 
   describe("Token Trading", function () {
     let tokenAddress: string;
 
     beforeEach(async function () {
-      const tx = await launchpad.connect(creator).createToken("Test Token", "TEST", "");
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "", mockRoot, getTokenCreationNullifierHash(10), mockProof);
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
@@ -208,7 +306,9 @@ describe("TokenLaunchpad", function () {
     let tokenAddress: string;
 
     beforeEach(async function () {
-      const tx = await launchpad.connect(creator).createToken("Test Token", "TEST", "");
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "", mockRoot, getTokenCreationNullifierHash(20), mockProof);
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
@@ -282,7 +382,9 @@ describe("TokenLaunchpad", function () {
     let tokenAddress: string;
 
     beforeEach(async function () {
-      const tx = await launchpad.connect(creator).createToken("Test Token", "TEST", "");
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "", mockRoot, getTokenCreationNullifierHash(30), mockProof);
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
@@ -313,7 +415,14 @@ describe("TokenLaunchpad", function () {
       // Create a token for testing
       const tx = await launchpad
         .connect(creator)
-        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+        .createToken(
+          "Test Token",
+          "TEST",
+          "https://example.com/metadata.json",
+          mockRoot,
+          getTokenCreationNullifierHash(40),
+          mockProof,
+        );
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
@@ -344,7 +453,14 @@ describe("TokenLaunchpad", function () {
       // Create a token for testing
       const tx = await launchpad
         .connect(creator)
-        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+        .createToken(
+          "Test Token",
+          "TEST",
+          "https://example.com/metadata.json",
+          mockRoot,
+          getTokenCreationNullifierHash(60),
+          mockProof,
+        );
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
@@ -435,7 +551,14 @@ describe("TokenLaunchpad", function () {
       // Create a token for testing
       const tx = await launchpad
         .connect(creator)
-        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+        .createToken(
+          "Test Token",
+          "TEST",
+          "https://example.com/metadata.json",
+          mockRoot,
+          getTokenCreationNullifierHash(50),
+          mockProof,
+        );
       const receipt = await tx.wait();
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,

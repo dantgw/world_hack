@@ -8,16 +8,14 @@ import { toast } from "react-hot-toast";
 import { decodeAbiParameters, formatEther, parseEther } from "viem";
 import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+// Import World ID configuration
+import { WORLD_ID_APP_ID, WORLD_ID_BUY_TOKEN_ACTION } from "~~/config/worldId";
 // Import the deployed contract
 import deployedContracts from "~~/contracts/deployedContracts";
 import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
 
 const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
 const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
-
-// World ID configuration
-const WORLD_ID_APP_ID = "app_staging_63bdbf24a4508f0f971c7311107ffa1c"; // Replace with your actual World ID App ID
-const WORLD_ID_ACTION = "buy-token"; // Replace with your action name
 
 interface TokenInfo {
   address: string;
@@ -477,7 +475,7 @@ export default function TradePage() {
               {!isWorldIdVerified ? (
                 <IDKitWidget
                   app_id={WORLD_ID_APP_ID}
-                  action={WORLD_ID_ACTION}
+                  action={WORLD_ID_BUY_TOKEN_ACTION}
                   signal={address}
                   onSuccess={onWorldIdSuccess}
                   verification_level={VerificationLevel.Orb}
@@ -682,6 +680,7 @@ export default function TradePage() {
                 <li>• Token creator earns 1% of all trading fees</li>
                 <li>• World ID verification required for each purchase (prevents duplicate transactions)</li>
                 <li>• Daily limit: 100 tokens per person per day</li>
+                <li>• Token creation limit: 1 token per person per day</li>
                 <li>• All calculations are estimates and may vary slightly</li>
               </ul>
             </div>
