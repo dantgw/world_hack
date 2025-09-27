@@ -7,8 +7,8 @@ const deployTokenLaunchpad: DeployFunction = async function (hre: HardhatRuntime
 
   // World ID configuration
   // These addresses are for Base Sepolia testnet - update for your target network
-  const worldIdAddress = "0x42FF98C4E85212a5D31358ACbFe76a621b50fC02"; // Base Sepolia World ID Router
-
+  // const worldIdAddress = "0x42FF98C4E85212a5D31358ACbFe76a621b50fC02"; // Base Sepolia World ID Router
+  const worldIdAddress = "0x57f928158C3EE7CDad1e4D8642503c4D0201f611"; // World Sepolia World ID Router
   // const action = "mint_tokens"; // Replace with your action name
   const appId = "app_staging_63bdbf24a4508f0f971c7311107ffa1c";
   const action = "buy-token"; // Action for buying tokens

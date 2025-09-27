@@ -8,14 +8,11 @@ import { toast } from "react-hot-toast";
 import { decodeAbiParameters, formatEther } from "viem";
 import { useAccount, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+// Import the centralized launchpad configuration
+import { LAUNCHPAD_ABI, LAUNCHPAD_ADDRESS } from "~~/config/launchpad";
 // Import World ID configuration
 import { WORLD_ID_APP_ID, WORLD_ID_CREATE_TOKEN_ACTION } from "~~/config/worldId";
-// Import the deployed contract
-import deployedContracts from "~~/contracts/deployedContracts";
 import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
-
-const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
 
 export default function CreateTokenPage() {
   const router = useRouter();
@@ -266,7 +263,7 @@ export default function CreateTokenPage() {
                     <button
                       onClick={open}
                       className="btn btn-info btn-sm w-full"
-                      disabled={cooldownInfo && !cooldownInfo.canCreateNow}
+                      disabled={cooldownInfo ? !cooldownInfo.canCreateNow : false}
                     >
                       Verify with World ID
                     </button>
@@ -388,7 +385,10 @@ export default function CreateTokenPage() {
                   type="submit"
                   className="btn btn-primary w-full btn-sm sm:btn-md"
                   disabled={
-                    isLoading || isCreateLoading || !isWorldIdVerified || (cooldownInfo && !cooldownInfo.canCreateNow)
+                    isLoading ||
+                    isCreateLoading ||
+                    !isWorldIdVerified ||
+                    (cooldownInfo ? !cooldownInfo.canCreateNow : false)
                   }
                 >
                   {isLoading || isCreateLoading ? (

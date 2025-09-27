@@ -1,9 +1,9 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { ReactNode } from "react";
+import dynamic from "next/dynamic";
 
-const Eruda = dynamic(() => import("./eruda-provider").then((c) => c.Eruda), {
+const Eruda = dynamic(() => import("./eruda-provider").then(c => c.Eruda), {
   ssr: false,
 });
 

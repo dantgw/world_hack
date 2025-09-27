@@ -6,11 +6,8 @@ import { formatEther } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 import { CurrencyDollarIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Address } from "~~/components/scaffold-eth";
-// Import the deployed contract
-import deployedContracts from "~~/contracts/deployedContracts";
-
-const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
+// Import the centralized launchpad configuration
+import { LAUNCHPAD_ABI, LAUNCHPAD_ADDRESS } from "~~/config/launchpad";
 
 interface TokenInfo {
   address: string;

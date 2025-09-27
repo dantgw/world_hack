@@ -1,7 +1,7 @@
 "use client";
 
-import eruda from "eruda";
 import { ReactNode, useEffect } from "react";
+import eruda from "eruda";
 
 export const Eruda = (props: { children: ReactNode }) => {
   useEffect(() => {

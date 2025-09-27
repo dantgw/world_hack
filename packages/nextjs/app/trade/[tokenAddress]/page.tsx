@@ -8,14 +8,11 @@ import { toast } from "react-hot-toast";
 import { decodeAbiParameters, formatEther, parseEther } from "viem";
 import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
+// Import the centralized launchpad configuration
+import { LAUNCHPAD_ABI, LAUNCHPAD_ADDRESS } from "~~/config/launchpad";
 // Import World ID configuration
 import { WORLD_ID_APP_ID, WORLD_ID_BUY_TOKEN_ACTION } from "~~/config/worldId";
-// Import the deployed contract
-import deployedContracts from "~~/contracts/deployedContracts";
 import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
-
-const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
-const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
 
 interface TokenInfo {
   address: string;
@@ -199,24 +196,20 @@ export default function TradePage() {
     }
   }, [sellReceiptError]);
 
-  // Reset World ID verification after successful transactions
+  // Show success message after successful transactions (without resetting WorldID)
   useEffect(() => {
     console.log("Debug - isBuySuccess:", isBuySuccess, "buyHash:", buyHash);
     if (isBuySuccess) {
-      console.log("Resetting World ID after successful buy transaction");
-      setWorldIdProof(null);
-      setIsWorldIdVerified(false);
-      toast.success("Transaction successful! Please verify with World ID again for next purchase.");
+      console.log("Buy transaction successful");
+      toast.success("Transaction successful!");
     }
   }, [isBuySuccess, buyHash]);
 
   useEffect(() => {
     console.log("Debug - isBuyExactSuccess:", isBuyExactSuccess, "buyExactHash:", buyExactHash);
     if (isBuyExactSuccess) {
-      console.log("Resetting World ID after successful buy exact transaction");
-      setWorldIdProof(null);
-      setIsWorldIdVerified(false);
-      toast.success("Transaction successful! Please verify with World ID again for next purchase.");
+      console.log("Buy exact transaction successful");
+      toast.success("Transaction successful!");
     }
   }, [isBuyExactSuccess, buyExactHash]);
 
@@ -470,7 +463,7 @@ export default function TradePage() {
                 <span className="text-sm font-medium text-info">World ID Verification Required</span>
               </div>
               <p className="text-xs text-base-content/70 mb-3">
-                Each purchase requires a fresh World ID verification to prevent duplicate transactions.
+                World ID verification is required once per session to prevent duplicate transactions.
               </p>
               {!isWorldIdVerified ? (
                 <IDKitWidget

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { hardhat } from "viem/chains";
-import deployedContracts from "~~/contracts/deployedContracts";
+// Import the centralized launchpad configuration
+import { LAUNCHPAD_CONFIG } from "~~/config/launchpad";
 
 const client = createPublicClient({
   chain: hardhat,
@@ -17,11 +18,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Token address is required" }, { status: 400 });
     }
 
-    const contract = deployedContracts[84532].TokenLaunchpad;
+    const contract = LAUNCHPAD_CONFIG;
 
     // Get token info from contract
     const tokenInfo = await client.readContract({
-      address: contract.address as `0x${string}`,
+      address: contract.address,
       abi: contract.abi,
       functionName: "tokens",
       args: [tokenAddress as `0x${string}`],
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     // Get token price
     const tokenPrice = await client.readContract({
-      address: contract.address as `0x${string}`,
+      address: contract.address,
       abi: contract.abi,
       functionName: "getTokenPrice",
       args: [tokenAddress as `0x${string}`],
@@ -90,10 +91,10 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Handle TokenLaunchpad contract calls
-      const contract = deployedContracts[84532].TokenLaunchpad;
+      const contract = LAUNCHPAD_CONFIG;
 
       result = await client.readContract({
-        address: contract.address as `0x${string}`,
+        address: contract.address,
         abi: contract.abi,
         functionName: functionName,
         args: args,
