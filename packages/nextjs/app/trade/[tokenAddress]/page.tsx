@@ -10,6 +10,7 @@ import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, 
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 // Import the deployed contract
 import deployedContracts from "~~/contracts/deployedContracts";
+import { getParsedError } from "~~/utils/scaffold-eth/getParsedError";
 
 const LAUNCHPAD_ADDRESS = deployedContracts[84532].TokenLaunchpad.address;
 const LAUNCHPAD_ABI = deployedContracts[84532].TokenLaunchpad.abi;
@@ -122,21 +123,104 @@ export default function TradePage() {
     }
   }, [buyTokenAmount, requiredEthRaw, requiredEthError, isCalculatingCost]);
 
-  const { writeContract: buyTokens, data: buyHash } = useWriteContract();
-  const { writeContract: buyTokensExact, data: buyExactHash } = useWriteContract();
-  const { writeContract: sellTokens, data: sellHash } = useWriteContract();
+  const { writeContract: buyTokens, data: buyHash, error: buyError, isPending: isBuyPending } = useWriteContract();
+  const {
+    writeContract: buyTokensExact,
+    data: buyExactHash,
+    error: buyExactError,
+    isPending: isBuyExactPending,
+  } = useWriteContract();
+  const { writeContract: sellTokens, data: sellHash, error: sellError, isPending: isSellPending } = useWriteContract();
 
-  const { isLoading: isBuyLoading } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isBuyLoading,
+    isSuccess: isBuySuccess,
+    error: buyReceiptError,
+  } = useWaitForTransactionReceipt({
     hash: buyHash,
   });
 
-  const { isLoading: isBuyExactLoading } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isBuyExactLoading,
+    isSuccess: isBuyExactSuccess,
+    error: buyExactReceiptError,
+  } = useWaitForTransactionReceipt({
     hash: buyExactHash,
   });
 
-  const { isLoading: isSellLoading } = useWaitForTransactionReceipt({
+  const { isLoading: isSellLoading, error: sellReceiptError } = useWaitForTransactionReceipt({
     hash: sellHash,
   });
+
+  // Handle transaction errors
+  useEffect(() => {
+    if (buyError) {
+      console.error("Buy transaction error:", buyError);
+      const errorMessage = getParsedError(buyError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [buyError]);
+
+  useEffect(() => {
+    if (buyExactError) {
+      console.error("Buy exact transaction error:", buyExactError);
+      const errorMessage = getParsedError(buyExactError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [buyExactError]);
+
+  useEffect(() => {
+    if (sellError) {
+      console.error("Sell transaction error:", sellError);
+      const errorMessage = getParsedError(sellError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [sellError]);
+
+  useEffect(() => {
+    if (buyReceiptError) {
+      console.error("Buy receipt error:", buyReceiptError);
+      const errorMessage = getParsedError(buyReceiptError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [buyReceiptError]);
+
+  useEffect(() => {
+    if (buyExactReceiptError) {
+      console.error("Buy exact receipt error:", buyExactReceiptError);
+      const errorMessage = getParsedError(buyExactReceiptError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [buyExactReceiptError]);
+
+  useEffect(() => {
+    if (sellReceiptError) {
+      console.error("Sell receipt error:", sellReceiptError);
+      const errorMessage = getParsedError(sellReceiptError);
+      toast.error(`Transaction failed: ${errorMessage}`);
+    }
+  }, [sellReceiptError]);
+
+  // Reset World ID verification after successful transactions
+  useEffect(() => {
+    console.log("Debug - isBuySuccess:", isBuySuccess, "buyHash:", buyHash);
+    if (isBuySuccess) {
+      console.log("Resetting World ID after successful buy transaction");
+      setWorldIdProof(null);
+      setIsWorldIdVerified(false);
+      toast.success("Transaction successful! Please verify with World ID again for next purchase.");
+    }
+  }, [isBuySuccess, buyHash]);
+
+  useEffect(() => {
+    console.log("Debug - isBuyExactSuccess:", isBuyExactSuccess, "buyExactHash:", buyExactHash);
+    if (isBuyExactSuccess) {
+      console.log("Resetting World ID after successful buy exact transaction");
+      setWorldIdProof(null);
+      setIsWorldIdVerified(false);
+      toast.success("Transaction successful! Please verify with World ID again for next purchase.");
+    }
+  }, [isBuyExactSuccess, buyExactHash]);
 
   // Compute token info from contract data
   const tokenInfo =
@@ -195,7 +279,7 @@ export default function TradePage() {
 
     try {
       setIsLoading(true);
-      await buyTokens({
+      buyTokens({
         address: LAUNCHPAD_ADDRESS,
         abi: LAUNCHPAD_ABI,
         functionName: "buyTokens",
@@ -211,7 +295,8 @@ export default function TradePage() {
       setEthAmount("");
     } catch (error) {
       console.error("Error buying tokens:", error);
-      toast.error("Failed to buy tokens");
+      const errorMessage = getParsedError(error);
+      toast.error(`Failed to buy tokens: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -231,7 +316,7 @@ export default function TradePage() {
     try {
       setIsLoading(true);
 
-      await buyTokensExact({
+      buyTokensExact({
         address: LAUNCHPAD_ADDRESS,
         abi: LAUNCHPAD_ABI,
         functionName: "buyTokensExact",
@@ -248,7 +333,8 @@ export default function TradePage() {
       setBuyTokenAmount("");
     } catch (error) {
       console.error("Error buying exact tokens:", error);
-      toast.error("Failed to buy tokens");
+      const errorMessage = getParsedError(error);
+      toast.error(`Failed to buy tokens: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -262,7 +348,7 @@ export default function TradePage() {
 
     try {
       setIsLoading(true);
-      await sellTokens({
+      sellTokens({
         address: LAUNCHPAD_ADDRESS,
         abi: LAUNCHPAD_ABI,
         functionName: "sellTokens",
@@ -272,7 +358,8 @@ export default function TradePage() {
       setTokenAmount("");
     } catch (error) {
       console.error("Error selling tokens:", error);
-      toast.error("Failed to sell tokens");
+      const errorMessage = getParsedError(error);
+      toast.error(`Failed to sell tokens: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -384,6 +471,9 @@ export default function TradePage() {
                 <InformationCircleIcon className="h-5 w-5 text-info" />
                 <span className="text-sm font-medium text-info">World ID Verification Required</span>
               </div>
+              <p className="text-xs text-base-content/70 mb-3">
+                Each purchase requires a fresh World ID verification to prevent duplicate transactions.
+              </p>
               {!isWorldIdVerified ? (
                 <IDKitWidget
                   app_id={WORLD_ID_APP_ID}
@@ -399,15 +489,28 @@ export default function TradePage() {
                   )}
                 </IDKitWidget>
               ) : (
-                <div className="flex items-center gap-2 text-success">
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-sm">Verified with World ID</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-success">
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-sm">Verified with World ID</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setWorldIdProof(null);
+                      setIsWorldIdVerified(false);
+                      toast.success("World ID verification reset");
+                    }}
+                    className="btn btn-xs btn-ghost"
+                    title="Reset World ID verification"
+                  >
+                    Reset
+                  </button>
                 </div>
               )}
             </div>
@@ -445,9 +548,16 @@ export default function TradePage() {
               <button
                 className="btn btn-success w-full btn-sm sm:btn-md"
                 onClick={handleBuyTokens}
-                disabled={isLoading || isBuyLoading || !ethAmount || parseFloat(ethAmount) <= 0 || !isWorldIdVerified}
+                disabled={
+                  isLoading ||
+                  isBuyLoading ||
+                  isBuyPending ||
+                  !ethAmount ||
+                  parseFloat(ethAmount) <= 0 ||
+                  !isWorldIdVerified
+                }
               >
-                {isLoading || isBuyLoading ? (
+                {isLoading || isBuyLoading || isBuyPending ? (
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
                   `Buy with ETH`
@@ -494,6 +604,7 @@ export default function TradePage() {
                 disabled={
                   isLoading ||
                   isBuyExactLoading ||
+                  isBuyExactPending ||
                   !buyTokenAmount ||
                   parseFloat(buyTokenAmount) <= 0 ||
                   !requiredEthRaw ||
@@ -501,7 +612,7 @@ export default function TradePage() {
                   !isWorldIdVerified
                 }
               >
-                {isLoading || isBuyExactLoading ? (
+                {isLoading || isBuyExactLoading || isBuyExactPending ? (
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
                   `Buy Exact ${tokenInfo.symbol}`
@@ -546,9 +657,9 @@ export default function TradePage() {
               <button
                 className="btn btn-error w-full btn-sm sm:btn-md"
                 onClick={handleSellTokens}
-                disabled={isLoading || isSellLoading || !tokenAmount || parseFloat(tokenAmount) <= 0}
+                disabled={isLoading || isSellLoading || isSellPending || !tokenAmount || parseFloat(tokenAmount) <= 0}
               >
-                {isLoading || isSellLoading ? (
+                {isLoading || isSellLoading || isSellPending ? (
                   <span className="loading loading-spinner loading-sm"></span>
                 ) : (
                   `Sell ${tokenInfo.symbol}`
@@ -569,7 +680,7 @@ export default function TradePage() {
                 <li>• 1% trading fee is applied to all transactions</li>
                 <li>• Early buyers get better prices as supply increases</li>
                 <li>• Token creator earns 1% of all trading fees</li>
-                <li>• World ID verification required for all purchases (sybil resistance)</li>
+                <li>• World ID verification required for each purchase (prevents duplicate transactions)</li>
                 <li>• Daily limit: 100 tokens per person per day</li>
                 <li>• All calculations are estimates and may vary slightly</li>
               </ul>

@@ -61,7 +61,7 @@ describe("TokenLaunchpad", function () {
       expect(event).to.not.be.undefined;
       expect(event).to.not.be.null;
 
-      const tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      const tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
       expect(await launchpad.isToken(tokenAddress)).to.be.true;
 
       const tokenInfo = await launchpad.tokens(tokenAddress);
@@ -87,7 +87,7 @@ describe("TokenLaunchpad", function () {
       expect(event).to.not.be.undefined;
       expect(event).to.not.be.null;
 
-      const eventArgs = launchpad.interface.parseLog(event as any).args;
+      const eventArgs = launchpad.interface.parseLog(event as any)!.args;
       expect(eventArgs.creator).to.equal(creator.address);
       expect(eventArgs.name).to.equal(tokenName);
       expect(eventArgs.symbol).to.equal(tokenSymbol);
@@ -104,11 +104,11 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
     });
 
     it("Should buy tokens with ETH", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.0001"); // Very small amount to stay within 100 token limit
 
       const tx = await launchpad
         .connect(buyer)
@@ -119,6 +119,7 @@ describe("TokenLaunchpad", function () {
       const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
       const tokenBalance = await token.balanceOf(buyer.address);
       expect(tokenBalance).to.be.gt(0);
+      expect(tokenBalance).to.be.lte(ethers.parseEther("100")); // Should not exceed limit
 
       // Check event emission
       const event = receipt?.logs.find(
@@ -126,7 +127,7 @@ describe("TokenLaunchpad", function () {
       );
       expect(event).to.not.be.undefined;
 
-      const eventArgs = launchpad.interface.parseLog(event as any).args;
+      const eventArgs = launchpad.interface.parseLog(event as any)!.args;
       expect(eventArgs.token).to.equal(tokenAddress);
       expect(eventArgs.buyer).to.equal(buyer.address);
       expect(eventArgs.ethAmount).to.equal(ethAmount);
@@ -134,7 +135,7 @@ describe("TokenLaunchpad", function () {
 
     it("Should sell tokens for ETH", async function () {
       // First buy some tokens
-      const buyAmount = ethers.parseEther("1");
+      const buyAmount = ethers.parseEther("0.0001"); // Very small amount to stay within 100 token limit
       await launchpad
         .connect(buyer)
         .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(2), mockProof, { value: buyAmount });
@@ -156,14 +157,14 @@ describe("TokenLaunchpad", function () {
       );
       expect(event).to.not.be.undefined;
 
-      const eventArgs = launchpad.interface.parseLog(event as any).args;
+      const eventArgs = launchpad.interface.parseLog(event as any)!.args;
       expect(eventArgs.token).to.equal(tokenAddress);
       expect(eventArgs.seller).to.equal(buyer.address);
       expect(eventArgs.tokenAmount).to.equal(sellAmount);
     });
 
     it("Should calculate correct token amounts", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.0001"); // Very small amount to stay within 100 token limit
 
       // Calculate the fee (1% = 100/10000)
       const feeAmount = (ethAmount * 100n) / 10000n;
@@ -183,16 +184,16 @@ describe("TokenLaunchpad", function () {
       const actualTokenAmount = await token.balanceOf(buyer.address);
 
       // Allow for small rounding differences (increased tolerance for bonding curve calculations)
-      expect(actualTokenAmount).to.be.closeTo(expectedTokenAmount, ethers.parseEther("1"));
+      expect(actualTokenAmount).to.be.closeTo(expectedTokenAmount, ethers.parseEther("0.1"));
     });
 
     it("Should prevent buying tokens that don't exist", async function () {
       const fakeTokenAddress = ethers.Wallet.createRandom().address;
 
       await expect(
-        launchpad
-          .connect(buyer)
-          .buyTokens(fakeTokenAddress, mockRoot, getMockNullifierHash(4), mockProof, { value: ethers.parseEther("1") }),
+        launchpad.connect(buyer).buyTokens(fakeTokenAddress, mockRoot, getMockNullifierHash(4), mockProof, {
+          value: ethers.parseEther("0.01"),
+        }),
       ).to.be.revertedWith("Token does not exist");
     });
 
@@ -212,11 +213,11 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
     });
 
     it("Should distribute creator fees correctly", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.001"); // Very small amount to stay within 100 token limit
       await launchpad
         .connect(buyer)
         .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
@@ -236,7 +237,7 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should accumulate platform fees", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.001"); // Very small amount to stay within 100 token limit
       await launchpad
         .connect(buyer)
         .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
@@ -246,7 +247,7 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should allow owner to withdraw platform fees", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.001"); // Very small amount to stay within 100 token limit
       await launchpad
         .connect(buyer)
         .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
@@ -266,7 +267,7 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should prevent non-creator from withdrawing creator fees", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.001"); // Very small amount to stay within 100 token limit
       await launchpad
         .connect(buyer)
         .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(7), mockProof, { value: ethAmount });
@@ -286,7 +287,7 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
     });
 
     it("Should return correct token price", async function () {
@@ -317,11 +318,11 @@ describe("TokenLaunchpad", function () {
       const event = receipt?.logs.find(
         (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
       );
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
     });
 
     it("Should verify World ID proof when buying tokens", async function () {
-      const ethAmount = ethers.parseEther("1");
+      const ethAmount = ethers.parseEther("0.0001"); // Very small amount to stay within 100 token limit
 
       const tx = await launchpad
         .connect(buyer)
@@ -333,69 +334,6 @@ describe("TokenLaunchpad", function () {
         (log: any) => log.topics[0] === launchpad.interface.getEvent("WorldIDVerified").topicHash,
       );
       expect(worldIDEvent).to.not.be.undefined;
-    });
-
-    it("Should prevent reusing the same nullifier hash", async function () {
-      const ethAmount = ethers.parseEther("1");
-      const sameNullifier = getMockNullifierHash(100);
-
-      // First call should succeed
-      await launchpad.connect(buyer).buyTokens(tokenAddress, mockRoot, sameNullifier, mockProof, { value: ethAmount });
-
-      // Second call with same nullifier should fail
-      await expect(
-        launchpad.connect(buyer).buyTokens(tokenAddress, mockRoot, sameNullifier, mockProof, { value: ethAmount }),
-      ).to.be.reverted;
-    });
-  });
-
-  describe("Daily Mint Limits", function () {
-    let tokenAddress: string;
-
-    beforeEach(async function () {
-      // Create a token for testing
-      const tx = await launchpad
-        .connect(creator)
-        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
-      const receipt = await tx.wait();
-      const event = receipt?.logs.find(
-        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
-      );
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
-    });
-
-    it("Should track daily minted amount", async function () {
-      const ethAmount = ethers.parseEther("1");
-
-      // First purchase
-      await launchpad
-        .connect(buyer)
-        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(8), mockProof, { value: ethAmount });
-
-      const dailyMinted = await launchpad.getDailyMintedAmount(buyer.address);
-      expect(dailyMinted).to.be.gt(0);
-
-      const remainingLimit = await launchpad.getRemainingDailyLimit(buyer.address);
-      expect(remainingLimit).to.be.lt(ethers.parseEther("100"));
-    });
-
-    it("Should reset daily limit after 24 hours", async function () {
-      const ethAmount = ethers.parseEther("1");
-
-      // First purchase
-      await launchpad
-        .connect(buyer)
-        .buyTokens(tokenAddress, mockRoot, getMockNullifierHash(9), mockProof, { value: ethAmount });
-
-      // Simulate time passing (24 hours + 1 second)
-      await ethers.provider.send("evm_increaseTime", [86401]);
-      await ethers.provider.send("evm_mine", []);
-
-      const dailyMinted = await launchpad.getDailyMintedAmount(buyer.address);
-      expect(dailyMinted).to.equal(0);
-
-      const remainingLimit = await launchpad.getRemainingDailyLimit(buyer.address);
-      expect(remainingLimit).to.equal(ethers.parseEther("100"));
     });
   });
 
@@ -413,11 +351,11 @@ describe("TokenLaunchpad", function () {
       );
       expect(event).to.not.be.undefined;
       expect(event).to.not.be.null;
-      tokenAddress = launchpad.interface.parseLog(event as any).args.token;
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
     });
 
     it("Should buy exact amount of tokens", async function () {
-      const tokenAmount = ethers.parseEther("1000"); // Buy exactly 1000 tokens
+      const tokenAmount = ethers.parseEther("1"); // Buy exactly 1 token (well within 100 limit)
 
       // Get required ETH amount
       const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
@@ -437,9 +375,9 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should refund excess ETH when buying exact tokens", async function () {
-      const tokenAmount = ethers.parseEther("1000");
+      const tokenAmount = ethers.parseEther("0.5"); // Very small amount within limit
       const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
-      const excessEth = requiredEth + ethers.parseEther("0.1"); // Send extra ETH
+      const excessEth = requiredEth + ethers.parseEther("0.001"); // Send extra ETH
 
       const initialBalance = await ethers.provider.getBalance(buyer.address);
 
@@ -458,9 +396,11 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should fail when insufficient ETH is sent for exact tokens", async function () {
-      const tokenAmount = ethers.parseEther("1000");
+      const tokenAmount = ethers.parseEther("0.1"); // Very small amount within limit
       const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
-      const insufficientEth = requiredEth - ethers.parseEther("0.1"); // Send less ETH
+      // Ensure we don't underflow by checking if requiredEth is large enough
+      const insufficientEth =
+        requiredEth > ethers.parseEther("0.0001") ? requiredEth - ethers.parseEther("0.0001") : requiredEth / 2n; // If requiredEth is too small, use half
 
       await expect(
         launchpad
@@ -472,7 +412,7 @@ describe("TokenLaunchpad", function () {
     });
 
     it("Should calculate correct ETH requirement for tokens", async function () {
-      const tokenAmount = ethers.parseEther("1000");
+      const tokenAmount = ethers.parseEther("0.05"); // Very small amount within limit
       const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
 
       expect(requiredEth).to.be.gt(0);
@@ -485,6 +425,158 @@ describe("TokenLaunchpad", function () {
       );
 
       expect(requiredEth).to.be.gt(baseEth);
+    });
+  });
+
+  describe("24-Hour Purchase Limit", function () {
+    let tokenAddress: string;
+
+    beforeEach(async function () {
+      // Create a token for testing
+      const tx = await launchpad
+        .connect(creator)
+        .createToken("Test Token", "TEST", "https://example.com/metadata.json");
+      const receipt = await tx.wait();
+      const event = receipt?.logs.find(
+        (log: any) => log.topics[0] === launchpad.interface.getEvent("TokenCreated").topicHash,
+      );
+      tokenAddress = launchpad.interface.parseLog(event as any)!.args.token;
+    });
+
+    it("Should enforce 100 token limit per person within first 24 hours", async function () {
+      const nullifierHash = getMockNullifierHash(200);
+
+      // Try to buy exactly 10 tokens (should succeed, well within 100 limit)
+      const tokenAmount = ethers.parseEther("10");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, tokenAmount, mockRoot, nullifierHash, mockProof, {
+        value: requiredEth,
+      });
+
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const balance = await token.balanceOf(buyer.address);
+      expect(balance).to.equal(tokenAmount);
+    });
+
+    it("Should allow buying exactly 100 tokens within first 24 hours", async function () {
+      const nullifierHash = getMockNullifierHash(207);
+
+      // Try to buy exactly 100 tokens (should succeed, at the limit)
+      const tokenAmount = ethers.parseEther("100");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, tokenAmount, mockRoot, nullifierHash, mockProof, {
+        value: requiredEth,
+      });
+
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const balance = await token.balanceOf(buyer.address);
+      expect(balance).to.equal(tokenAmount);
+    });
+
+    it("Should prevent exceeding 100 token limit within first 24 hours", async function () {
+      const nullifierHash = getMockNullifierHash(201);
+
+      // First buy 5 tokens
+      const firstAmount = ethers.parseEther("5");
+      const firstRequiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, firstAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, firstAmount, mockRoot, nullifierHash, mockProof, {
+        value: firstRequiredEth,
+      });
+
+      // Try to buy 96 more tokens (total would be 101, exceeding limit)
+      const secondAmount = ethers.parseEther("96");
+      const secondRequiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, secondAmount);
+
+      await expect(
+        launchpad.connect(buyer).buyTokensExact(tokenAddress, secondAmount, mockRoot, nullifierHash, mockProof, {
+          value: secondRequiredEth,
+        }),
+      ).to.be.revertedWithCustomError(launchpad, "InvalidMintAmount");
+    });
+
+    it("Should allow buying more than 100 tokens after 24 hours", async function () {
+      const nullifierHash = getMockNullifierHash(202);
+
+      // Fast forward time by 25 hours (more than 24 hours)
+      await ethers.provider.send("evm_increaseTime", [25 * 60 * 60]); // 25 hours
+      await ethers.provider.send("evm_mine", []);
+
+      // Now try to buy 15 tokens (should succeed as 24 hours have passed)
+      const tokenAmount = ethers.parseEther("15");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, tokenAmount, mockRoot, nullifierHash, mockProof, {
+        value: requiredEth,
+      });
+
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const balance = await token.balanceOf(buyer.address);
+      expect(balance).to.equal(tokenAmount);
+    });
+
+    it("Should track remaining limit correctly", async function () {
+      const nullifierHash = getMockNullifierHash(203);
+
+      // Buy 3 tokens
+      const firstAmount = ethers.parseEther("3");
+      const firstRequiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, firstAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, firstAmount, mockRoot, nullifierHash, mockProof, {
+        value: firstRequiredEth,
+      });
+
+      // Check remaining limit
+      const remainingLimit = await launchpad.getRemainingLimit(nullifierHash, tokenAddress);
+      expect(remainingLimit).to.equal(ethers.parseEther("97")); // 100 - 3 = 97
+    });
+
+    it("Should allow different users to have separate limits", async function () {
+      const nullifierHash1 = getMockNullifierHash(204);
+      const nullifierHash2 = getMockNullifierHash(205);
+
+      // First user buys 10 tokens
+      const tokenAmount = ethers.parseEther("10");
+      const requiredEth = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      await launchpad.connect(buyer).buyTokensExact(tokenAddress, tokenAmount, mockRoot, nullifierHash1, mockProof, {
+        value: requiredEth,
+      });
+
+      // Second user should also be able to buy 10 tokens
+      // Get the required ETH again as it may have changed due to bonding curve
+      const requiredEth2 = await launchpad.getEthRequiredForTokens(tokenAddress, tokenAmount);
+
+      await launchpad
+        .connect(owner) // Using different account
+        .buyTokensExact(tokenAddress, tokenAmount, mockRoot, nullifierHash2, mockProof, {
+          value: requiredEth2,
+        });
+
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const buyerBalance = await token.balanceOf(buyer.address);
+      const ownerBalance = await token.balanceOf(owner.address);
+
+      expect(buyerBalance).to.equal(tokenAmount);
+      expect(ownerBalance).to.equal(tokenAmount);
+    });
+
+    it("Should allow buying tokens with ETH within limit", async function () {
+      const nullifierHash = getMockNullifierHash(206);
+
+      // Buy tokens with ETH (very small amount to stay within limit)
+      const ethAmount = ethers.parseEther("0.0001");
+
+      await launchpad.connect(buyer).buyTokens(tokenAddress, mockRoot, nullifierHash, mockProof, { value: ethAmount });
+
+      const token = await ethers.getContractAt("LaunchpadToken", tokenAddress);
+      const balance = await token.balanceOf(buyer.address);
+
+      // Should have received tokens and not exceed limit
+      expect(balance).to.be.gt(0);
+      expect(balance).to.be.lte(ethers.parseEther("100"));
     });
   });
 });

@@ -19,7 +19,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant FEE_RATE = 100; // 1% (100/10000)
     uint256 public constant CREATOR_FEE_RATE = 100; // 1% (100/10000)
     uint256 public constant PLATFORM_FEE_RATE = 100; // 1% (100/10000)
-    uint256 public constant DAILY_MINT_LIMIT = 100 ether; // 100 tokens per person per day
+    uint256 public constant INITIAL_MINT_LIMIT = 100_000_000_000_000_000_000; // 100 tokens per person per day
     uint256 public constant SECONDS_IN_DAY = 86400; // 24 hours
     
     // State variables
@@ -36,7 +36,8 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     uint256 internal immutable groupId = 1; // Orb-verified users only
     
     // Sybil resistance and daily limits
-    mapping(uint256 => bool) internal nullifierHashes;
+    // mapping(uint256 => bool) internal nullifierHashes;
+    mapping(address => mapping (uint256 => uint256)) public initialTokenPurchasesMapping;
     mapping(address => uint256) internal dailyMintedAmount;
     mapping(address => uint256) internal lastMintDay;
     
@@ -99,7 +100,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     }
     
     /// @notice Thrown when attempting to reuse a nullifier
-    error InvalidNullifier();
+    error InvalidMintAmount();
     
     /// @notice Thrown when daily mint limit is exceeded
     error DailyLimitExceededError();
@@ -186,8 +187,11 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
             ethAfterFee
         );
         
-        // Check daily mint limit
-        _checkDailyMintLimit(msg.sender, tokenAmount);
+        // Check initial mint limit
+        if (block.timestamp - tokenInfo.createdAt < SECONDS_IN_DAY){
+            _checkInitialMintLimit(nullifierHash, tokenAddress, tokenAmount);
+            initialTokenPurchasesMapping[tokenAddress][nullifierHash] += tokenAmount;
+        }
         
         // Update virtual reserves
         tokenInfo.virtualEthReserves = tokenInfo.virtualEthReserves.add(ethAfterFee);
@@ -196,9 +200,6 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         
         // Mint tokens to buyer
         LaunchpadToken(tokenAddress).mint(msg.sender, tokenAmount);
-        
-        // Update daily mint tracking
-        _updateDailyMintTracking(msg.sender, tokenAmount);
         
         // Distribute fees
         uint256 creatorFee = feeAmount.mul(CREATOR_FEE_RATE).div(10000);
@@ -240,9 +241,12 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         
         TokenInfo storage tokenInfo = tokens[tokenAddress];
         
-        // Check daily mint limit
-        _checkDailyMintLimit(msg.sender, tokenAmount);
-        
+        // Check initial mint limit
+        if (block.timestamp - tokenInfo.createdAt < SECONDS_IN_DAY){
+            _checkInitialMintLimit(nullifierHash, tokenAddress, tokenAmount);
+            initialTokenPurchasesMapping[tokenAddress][nullifierHash] += tokenAmount;
+        }
+
         // Calculate required ETH amount using bonding curve
         uint256 requiredEthAmount = calculateEthAmount(
             tokenInfo.virtualEthReserves,
@@ -266,9 +270,6 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         
         // Mint tokens to buyer
         LaunchpadToken(tokenAddress).mint(msg.sender, tokenAmount);
-        
-        // Update daily mint tracking
-        _updateDailyMintTracking(msg.sender, tokenAmount);
         
         // Distribute fees
         uint256 creatorFee = feeAmount.mul(CREATOR_FEE_RATE).div(10000);
@@ -457,32 +458,14 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     }
     
     /**
-     * @dev Get user's daily minted amount
+     * @dev Get user's remaining mint limit
      */
-    function getDailyMintedAmount(address user) external view returns (uint256) {
-        uint256 currentDay = block.timestamp / SECONDS_IN_DAY;
-        if (lastMintDay[user] == currentDay) {
-            return dailyMintedAmount[user];
-        }
-        return 0;
+    function getRemainingLimit(uint256 nullifierHash, address tokenAddress) external view returns (uint256) {
+        return INITIAL_MINT_LIMIT - initialTokenPurchasesMapping[tokenAddress][nullifierHash];
     }
     
     /**
-     * @dev Get user's remaining daily mint limit
-     */
-    function getRemainingDailyLimit(address user) external view returns (uint256) {
-        uint256 currentDay = block.timestamp / SECONDS_IN_DAY;
-        if (lastMintDay[user] == currentDay) {
-            if (dailyMintedAmount[user] >= DAILY_MINT_LIMIT) {
-                return 0;
-            }
-            return DAILY_MINT_LIMIT.sub(dailyMintedAmount[user]);
-        }
-        return DAILY_MINT_LIMIT;
-    }
-    
-    /**
-     * @dev Internal function to verify World ID proof
+     * @dev Internal function to verify purchase limit within the first 24h
      */
     function _verifyWorldIDProof(
         address signal,
@@ -490,8 +473,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
         uint256 nullifierHash,
         uint256[8] calldata proof
     ) internal {
-        // Check if nullifier has been used before
-        if (nullifierHashes[nullifierHash]) revert InvalidNullifier();
+       
         
         // Verify the World ID proof
         worldId.verifyProof(
@@ -503,43 +485,16 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
             proof
         );
         
-        // Mark nullifier as used
-        nullifierHashes[nullifierHash] = true;
-        
         emit WorldIDVerified(signal, nullifierHash);
     }
     
     /**
      * @dev Internal function to check daily mint limit
      */
-    function _checkDailyMintLimit(address user, uint256 tokenAmount) internal {
-        uint256 currentDay = block.timestamp / SECONDS_IN_DAY;
-        uint256 userDailyMinted = 0;
-        
-        if (lastMintDay[user] == currentDay) {
-            userDailyMinted = dailyMintedAmount[user];
-        }
-        
-        // Only check limit if user has already minted something today
-        if (userDailyMinted > 0 && userDailyMinted.add(tokenAmount) > DAILY_MINT_LIMIT) {
-            emit DailyLimitExceeded(user, userDailyMinted.add(tokenAmount), DAILY_MINT_LIMIT);
-            revert("Daily limit exceeded");
-        }
+    function _checkInitialMintLimit(uint256 nullifierHash, address tokenAddress,uint256 tokenAmount) internal {
+        if (initialTokenPurchasesMapping[tokenAddress][nullifierHash] + tokenAmount > INITIAL_MINT_LIMIT) revert InvalidMintAmount();
     }
     
-    /**
-     * @dev Internal function to update daily mint tracking
-     */
-    function _updateDailyMintTracking(address user, uint256 tokenAmount) internal {
-        uint256 currentDay = block.timestamp / SECONDS_IN_DAY;
-        
-        if (lastMintDay[user] == currentDay) {
-            dailyMintedAmount[user] = dailyMintedAmount[user].add(tokenAmount);
-        } else {
-            dailyMintedAmount[user] = tokenAmount;
-            lastMintDay[user] = currentDay;
-        }
-    }
     
     /**
      * @dev Receive ETH
