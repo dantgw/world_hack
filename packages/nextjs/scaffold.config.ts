@@ -1,3 +1,4 @@
+import { defineChain } from "viem";
 import * as chains from "viem/chains";
 
 export type ScaffoldConfig = {
@@ -8,9 +9,35 @@ export type ScaffoldConfig = {
   onlyLocalBurnerWallet: boolean;
 };
 
+// Define World Sepolia chain
+export const worldSepolia = defineChain({
+  id: 480,
+  name: "World Sepolia",
+  nativeCurrency: {
+    decimals: 18,
+    name: "Ether",
+    symbol: "ETH",
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://worldchain-sepolia.drpc.org"],
+    },
+    public: {
+      http: ["https://worldchain-sepolia.drpc.org"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "World Sepolia Explorer",
+      url: "https://sepolia.worldscan.org",
+    },
+  },
+  testnet: true,
+});
+
 const scaffoldConfig = {
   // The networks on which your DApp is live
-  targetNetworks: [chains.baseSepolia /*, chains.hardhat, chains.base*/],
+  targetNetworks: [worldSepolia /*, chains.hardhat, chains.base*/],
 
   // The interval at which your front-end polls the RPC servers for new data
   // it has no effect if you only target the local network (default is 4000)

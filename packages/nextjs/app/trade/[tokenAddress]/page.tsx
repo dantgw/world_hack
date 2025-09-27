@@ -397,53 +397,60 @@ export default function TradePage() {
   return (
     <div className="min-h-screen bg-base-100">
       {/* Header */}
-      <div className="bg-base-200 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-primary/20 to-secondary/20 shadow-lg border-b-2 border-accent/30">
+        <div className="container mx-auto px-3 py-4 sm:px-4 sm:py-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center space-x-3 sm:space-x-4">
-              <Link href="/" className="btn btn-ghost btn-sm">
-                <ArrowLeftIcon className="h-4 w-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Back</span>
+              <Link href="/" className="btn btn-ghost btn-sm hover:animate-wiggle">
+                <ArrowLeftIcon className="h-4 w-4 mr-1" />
+                <span className="hidden sm:inline">← Back to Tokens</span>
+                <span className="sm:hidden">← Back</span>
               </Link>
               <div>
-                <h1 className="text-lg sm:text-2xl font-bold text-primary">
-                  Trade {tokenInfo.name} ({tokenInfo.symbol})
-                </h1>
-                <p className="text-xs sm:text-sm text-base-content/70">Bonding curve pricing</p>
+                <h1 className="text-lg sm:text-3xl font-bold text-gradient animate-glow">🚀 Trade {tokenInfo.name}</h1>
+                <p className="text-sm text-base-content/70 font-medium">
+                  💰 Symbol: {tokenInfo.symbol} • 🌍 World Chain Sepolia
+                </p>
               </div>
             </div>
-            <Link href="/create-token" className="btn btn-primary btn-sm sm:btn-md w-full sm:w-auto">
-              <PlusIcon className="h-4 w-4 mr-2" />
-              <span className="hidden xs:inline">Create Token</span>
-              <span className="xs:hidden">Create</span>
-            </Link>
+
+            {/* Secondary Actions */}
+            <div className="flex gap-2">
+              <Link href="/" className="btn btn-outline btn-sm">
+                🏠 All Tokens
+              </Link>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-4 sm:py-8">
+      <div className="container mx-auto px-3 py-3 sm:px-4 sm:py-8">
         {/* Token Info Card */}
-        <div className="bg-base-200 rounded-lg p-4 sm:p-6 mb-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg p-3 mb-4 sm:p-6 sm:mb-6 border-2 border-accent/20 hover-lift">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Current Price</p>
-              <p className="text-lg sm:text-xl font-bold text-primary">{tokenInfo.price} ETH</p>
+              <p className="text-xs text-base-content/70 font-medium">💰 Current Price</p>
+              <p className="text-sm sm:text-xl font-bold text-accent">{tokenInfo.price} ETH</p>
             </div>
             <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Market Cap</p>
-              <p className="text-lg sm:text-xl font-bold">{tokenInfo.marketCap} ETH</p>
+              <p className="text-xs text-base-content/70 font-medium">📈 Market Cap</p>
+              <p className="text-sm sm:text-xl font-bold text-success">{tokenInfo.marketCap} ETH</p>
             </div>
             <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Total Supply</p>
-              <p className="text-lg sm:text-xl font-bold">{parseFloat(tokenInfo.totalSupply).toLocaleString()}</p>
+              <p className="text-xs text-base-content/70 font-medium">🪙 Total Supply</p>
+              <p className="text-sm sm:text-xl font-bold text-info">
+                {parseFloat(tokenInfo.totalSupply).toLocaleString()}
+              </p>
             </div>
             <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Your ETH Balance</p>
-              <p className="text-lg sm:text-xl font-bold">{userBalance ? formatEther(userBalance.value) : "0"} ETH</p>
+              <p className="text-xs text-base-content/70 font-medium">💎 Your ETH Balance</p>
+              <p className="text-sm sm:text-xl font-bold text-primary">
+                {userBalance ? formatEther(userBalance.value) : "0"} ETH
+              </p>
             </div>
-            <div>
-              <p className="text-xs sm:text-sm text-base-content/70">Your {tokenInfo.symbol} Balance</p>
-              <p className="text-lg sm:text-xl font-bold">
+            <div className="col-span-2 sm:col-span-1">
+              <p className="text-xs text-base-content/70 font-medium">🎯 Your {tokenInfo.symbol} Balance</p>
+              <p className="text-sm sm:text-xl font-bold text-secondary">
                 {userTokenBalanceRaw ? formatEther(userTokenBalanceRaw) : "0"} {tokenInfo.symbol}
               </p>
             </div>
@@ -451,16 +458,16 @@ export default function TradePage() {
         </div>
 
         {/* Trading Interface */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Buy Tokens */}
-          <div className="bg-base-200 rounded-lg p-4 sm:p-6">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 text-success">Buy {tokenInfo.symbol}</h3>
+          <div className="bg-gradient-to-br from-success/10 to-primary/10 rounded-lg p-3 sm:p-6 border-2 border-success/20 hover-lift">
+            <h3 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 text-success">🚀 Buy {tokenInfo.symbol}</h3>
 
             {/* World ID Verification */}
-            <div className="mb-4 p-3 rounded-lg bg-info/10 border border-info/20">
+            <div className="mb-3 sm:mb-4 p-3 rounded-lg bg-info/10 border border-info/20">
               <div className="flex items-center gap-2 mb-2">
-                <InformationCircleIcon className="h-5 w-5 text-info" />
-                <span className="text-sm font-medium text-info">World ID Verification Required</span>
+                <InformationCircleIcon className="h-4 w-4 sm:h-5 sm:w-5 text-info" />
+                <span className="text-xs sm:text-sm font-medium text-info">World ID Verification Required</span>
               </div>
               <p className="text-xs text-base-content/70 mb-3">
                 World ID verification is required once per session to prevent duplicate transactions.
@@ -506,15 +513,15 @@ export default function TradePage() {
               )}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Buy with ETH Amount */}
               <div>
                 <label className="label">
-                  <span className="label-text text-sm sm:text-base">ETH Amount</span>
+                  <span className="label-text text-xs">ETH Amount</span>
                 </label>
                 <input
                   type="number"
-                  className="input input-bordered w-full text-sm sm:text-base"
+                  className="input input-bordered w-full text-sm"
                   placeholder="0.1"
                   value={ethAmount}
                   onChange={e => setEthAmount(e.target.value)}
@@ -613,16 +620,16 @@ export default function TradePage() {
           </div>
 
           {/* Sell Tokens */}
-          <div className="bg-base-200 rounded-lg p-4 sm:p-6">
-            <h3 className="text-lg sm:text-xl font-bold mb-4 text-error">Sell {tokenInfo.symbol}</h3>
-            <div className="space-y-4">
+          <div className="bg-gradient-to-br from-error/10 to-warning/10 rounded-lg p-3 sm:p-6 border-2 border-error/20 hover-lift">
+            <h3 className="text-base sm:text-xl font-bold mb-3 sm:mb-4 text-error">💰 Sell {tokenInfo.symbol}</h3>
+            <div className="space-y-3">
               <div>
                 <label className="label">
-                  <span className="label-text text-sm sm:text-base">Token Amount</span>
+                  <span className="label-text text-xs">Token Amount</span>
                 </label>
                 <input
                   type="number"
-                  className="input input-bordered w-full text-sm sm:text-base"
+                  className="input input-bordered w-full text-sm"
                   placeholder="1000"
                   value={tokenAmount}
                   onChange={e => setTokenAmount(e.target.value)}
@@ -661,20 +668,19 @@ export default function TradePage() {
         </div>
 
         {/* Info Section */}
-        <div className="bg-info/10 rounded-lg p-4 sm:p-6 mt-6">
+        <div className="bg-gradient-to-r from-info/20 to-accent/20 rounded-lg p-3 sm:p-6 mt-4 sm:mt-6 border-2 border-info/30 hover-lift">
           <div className="flex items-start">
-            <InformationCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-info mr-2 sm:mr-3 mt-1 flex-shrink-0" />
+            <InformationCircleIcon className="h-4 w-4 sm:h-6 sm:w-6 text-info mr-2 sm:mr-3 mt-1 flex-shrink-0 animate-bounce-gentle" />
             <div>
-              <h3 className="font-bold text-info mb-2 text-sm sm:text-base">Trading Information</h3>
-              <ul className="text-xs sm:text-sm space-y-1 text-base-content/70">
-                <li>• Price updates automatically based on supply and demand</li>
-                <li>• 1% trading fee is applied to all transactions</li>
-                <li>• Early buyers get better prices as supply increases</li>
-                <li>• Token creator earns 1% of all trading fees</li>
-                <li>• World ID verification required for each purchase (prevents duplicate transactions)</li>
-                <li>• Daily limit: 100 tokens per person per day</li>
-                <li>• Token creation limit: 1 token per person per day</li>
-                <li>• All calculations are estimates and may vary slightly</li>
+              <h3 className="font-bold text-info mb-2 text-sm">🎯 Trading Information</h3>
+              <ul className="text-xs space-y-1 text-base-content/70">
+                <li>📈 Price updates automatically based on supply and demand</li>
+                <li>💸 1% trading fee is applied to all transactions</li>
+                <li>🚀 Early buyers get better prices as supply increases</li>
+                <li>👑 Token creator earns 1% of all trading fees</li>
+                <li>🆔 World ID verification required for each purchase</li>
+                <li>🌍 Deployed on World Chain Sepolia testnet</li>
+                <li>⚠️ All calculations are estimates and may vary slightly</li>
               </ul>
             </div>
           </div>

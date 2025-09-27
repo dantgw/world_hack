@@ -1,5 +1,5 @@
 import * as chains from "viem/chains";
-import scaffoldConfig from "~~/scaffold.config";
+import scaffoldConfig, { worldSepolia } from "~~/scaffold.config";
 
 type ChainAttributes = {
   // color | [lightThemeColor, darkThemeColor]
@@ -80,6 +80,9 @@ export const NETWORKS_EXTRA_DATA: Record<string, ChainAttributes> = {
   },
   [chains.scrollSepolia.id]: {
     color: "#fbebd4",
+  },
+  [worldSepolia.id]: {
+    color: "#00d4aa",
   },
 };
 

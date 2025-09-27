@@ -4,61 +4,38 @@ module.exports = {
   plugins: [require("daisyui")],
   darkTheme: "dark",
   darkMode: ["selector", "[data-theme='dark']"],
-  // DaisyUI theme colors
+  // DaisyUI theme colors - Wild Dark Meme Style
   daisyui: {
     themes: [
       {
-        light: {
-          primary: "#93BBFB",
-          "primary-content": "#212638",
-          secondary: "#DAE8FF",
-          "secondary-content": "#212638",
-          accent: "#93BBFB",
-          "accent-content": "#212638",
-          neutral: "#212638",
-          "neutral-content": "#ffffff",
-          "base-100": "#ffffff",
-          "base-200": "#f4f8ff",
-          "base-300": "#DAE8FF",
-          "base-content": "#212638",
-          info: "#93BBFB",
-          success: "#34EEB6",
-          warning: "#FFCF72",
-          error: "#FF8863",
-
-          "--rounded-btn": "9999rem",
-
-          ".tooltip": {
-            "--tooltip-tail": "6px",
-          },
-          ".link": {
-            textUnderlineOffset: "2px",
-          },
-          ".link:hover": {
-            opacity: "80%",
-          },
-        },
-      },
-      {
         dark: {
-          primary: "#212638",
-          "primary-content": "#F9FBFF",
-          secondary: "#323f61",
-          "secondary-content": "#F9FBFF",
-          accent: "#4969A6",
-          "accent-content": "#F9FBFF",
-          neutral: "#F9FBFF",
-          "neutral-content": "#385183",
-          "base-100": "#385183",
-          "base-200": "#2A3655",
-          "base-300": "#212638",
-          "base-content": "#F9FBFF",
-          info: "#385183",
-          success: "#34EEB6",
-          warning: "#FFCF72",
-          error: "#FF8863",
+          // Neon cyan for primary actions
+          primary: "#00FFFF",
+          "primary-content": "#000000",
+          // Electric green for secondary
+          secondary: "#00FF00",
+          "secondary-content": "#000000",
+          // Hot pink for accents
+          accent: "#FF00FF",
+          "accent-content": "#000000",
+          // Bright white for text
+          neutral: "#FFFFFF",
+          "neutral-content": "#000000",
+          // Deep dark backgrounds
+          "base-100": "#0a0a0a",
+          "base-200": "#1a1a1a",
+          "base-300": "#2a2a2a",
+          "base-content": "#FFFFFF",
+          // Neon blue for info
+          info: "#0080FF",
+          // Bright green for success
+          success: "#00FF80",
+          // Electric yellow for warnings
+          warning: "#FFFF00",
+          // Hot red for errors
+          error: "#FF0040",
 
-          "--rounded-btn": "9999rem",
+          "--rounded-btn": "1rem",
 
           ".tooltip": {
             "--tooltip-tail": "6px",
