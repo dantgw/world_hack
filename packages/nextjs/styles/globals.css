@@ -34,29 +34,25 @@ p {
 
 .btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 255, 255, 0.3);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
 .btn.btn-primary {
   background: linear-gradient(45deg, #00FFFF, #0080FF);
   border: 2px solid #00FFFF;
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
 
 .btn.btn-primary:hover {
   background: linear-gradient(45deg, #0080FF, #00FFFF);
-  box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
 }
 
 .btn.btn-secondary {
   background: linear-gradient(45deg, #00FF00, #00FF80);
   border: 2px solid #00FF00;
-  box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
 }
 
 .btn.btn-secondary:hover {
   background: linear-gradient(45deg, #00FF80, #00FF00);
-  box-shadow: 0 0 30px rgba(0, 255, 0, 0.8);
 }
 
 .btn.btn-ghost {
@@ -133,7 +129,6 @@ p {
 
 .neon-border {
   border: 2px solid #00FFFF;
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
 
 /* Wild hover effects */
@@ -143,7 +138,7 @@ p {
 
 .hover-lift:hover {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 10px 30px rgba(0, 255, 255, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
 }
 
 .hover-neon:hover {
@@ -157,7 +152,6 @@ p {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: neon-pulse 3s ease-in-out infinite;
 }
 
 .text-neon {
@@ -172,13 +166,11 @@ p {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
 }
 
 .btn-meme:hover {
   background: linear-gradient(45deg, #FF00FF, #00FFFF);
   transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 0 30px rgba(255, 0, 255, 0.8);
 }
 
 /* Dark theme specific styles */

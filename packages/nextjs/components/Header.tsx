@@ -15,7 +15,6 @@ export const Header = () => {
         <Link href="/" passHref className="flex items-center gap-2 ml-2 mr-4 shrink-0">
           <div className="flex flex-col">
             <span className="font-bold leading-tight text-lg text-gradient animate-glow">🚀 Coins Of Humanity</span>
-            <span className="text-xs text-base-content/70 font-medium">🌍 World Chain Sepolia</span>
           </div>
         </Link>
       </div>
