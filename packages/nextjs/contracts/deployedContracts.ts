@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   4801: {
     TokenLaunchpad: {
-      address: "0x8fB89c66446d34Fc825fac19cc98FAc34840e6E9",
+      address: "0x9D2374B0A7b5Dd5cb75101Fb2FF985Fed8AC89A3",
       abi: [
         {
           inputs: [
@@ -347,6 +347,19 @@ const deployedContracts = {
         {
           inputs: [],
           name: "SECONDS_IN_DAY",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "SECONDS_IN_MINUTE",
           outputs: [
             {
               internalType: "uint256",

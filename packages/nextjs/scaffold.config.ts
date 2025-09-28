@@ -11,7 +11,7 @@ export type ScaffoldConfig = {
 
 // Define World Sepolia chain
 export const worldSepolia = defineChain({
-  id: 480,
+  id: 4801,
   name: "World Sepolia",
   nativeCurrency: {
     decimals: 18,

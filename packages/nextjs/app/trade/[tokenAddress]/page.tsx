@@ -3,10 +3,18 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { IDKitWidget, ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
 import { toast } from "react-hot-toast";
 import { decodeAbiParameters, formatEther, parseEther } from "viem";
-import { useAccount, useBalance, useReadContract, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useBalance,
+  useBlockNumber,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import { ArrowLeftIcon, InformationCircleIcon, PlusIcon, RocketLaunchIcon } from "@heroicons/react/24/outline";
 // Import the centralized launchpad configuration
 import { LAUNCHPAD_ABI, LAUNCHPAD_ADDRESS } from "~~/config/launchpad";
@@ -62,7 +70,7 @@ export default function TradePage() {
   });
 
   // Read user's token balance directly from contract
-  const { data: userTokenBalanceRaw } = useReadContract({
+  const { data: userTokenBalanceRaw, queryKey: tokenBalanceQueryKey } = useReadContract({
     address: tokenAddress as `0x${string}`,
     abi: [
       {
@@ -76,6 +84,16 @@ export default function TradePage() {
     functionName: "balanceOf",
     args: address ? [address] : undefined,
   });
+
+  // Watch for new blocks to invalidate token balance cache
+  const queryClient = useQueryClient();
+  const { data: blockNumber } = useBlockNumber({ watch: true });
+
+  useEffect(() => {
+    if (blockNumber && tokenBalanceQueryKey) {
+      queryClient.invalidateQueries({ queryKey: tokenBalanceQueryKey });
+    }
+  }, [blockNumber, queryClient, tokenBalanceQueryKey]);
 
   // Read required ETH for exact token purchase
   const {
@@ -403,8 +421,8 @@ export default function TradePage() {
             <div className="flex items-center space-x-3 sm:space-x-4">
               <Link href="/" className="btn btn-ghost btn-sm hover:animate-wiggle">
                 <ArrowLeftIcon className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">← Back to Tokens</span>
-                <span className="sm:hidden">← Back</span>
+                <span className="hidden sm:inline">Back</span>
+                <span className="sm:hidden">Back</span>
               </Link>
               <div>
                 <h1 className="text-lg sm:text-3xl font-bold text-gradient animate-glow">🚀 Trade {tokenInfo.name}</h1>

@@ -21,6 +21,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
     uint256 public constant PLATFORM_FEE_RATE = 100; // 1% (100/10000)
     uint256 public constant INITIAL_MINT_LIMIT = 100_000_000_000_000_000_000; // 100 tokens per person per day
     uint256 public constant SECONDS_IN_DAY = 86400; // 24 hours
+    uint256 public constant SECONDS_IN_MINUTE = 60; // 24 hours
     
     // State variables
     mapping(address => TokenInfo) public tokens;
@@ -510,7 +511,7 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
             return (true, 0);
         }
         
-        uint256 cooldownEndTime = lastCreation + SECONDS_IN_DAY;
+        uint256 cooldownEndTime = lastCreation + SECONDS_IN_MINUTE;
         if (block.timestamp >= cooldownEndTime) {
             return (true, 0);
         } else {
@@ -554,8 +555,8 @@ contract TokenLaunchpad is Ownable, ReentrancyGuard {
      */
     function _checkTokenCreationCooldown(uint256 nullifierHash) internal {
         uint256 lastCreation = lastTokenCreationTime[nullifierHash];
-        if (lastCreation > 0 && block.timestamp - lastCreation < SECONDS_IN_DAY) {
-            uint256 cooldownEndTime = lastCreation + SECONDS_IN_DAY;
+        if (lastCreation > 0 && block.timestamp - lastCreation < SECONDS_IN_MINUTE) {
+            uint256 cooldownEndTime = lastCreation + SECONDS_IN_MINUTE;
             emit TokenCreationCooldownExceeded(msg.sender, nullifierHash, lastCreation, cooldownEndTime);
             revert TokenCreationCooldownNotMet();
         }
