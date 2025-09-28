@@ -44,6 +44,6 @@ const rainbowGroups = (targetNetworks as unknown as chains.Chain[]).some(
  * wagmi connectors for the wagmi context
  */
 export const wagmiConnectors = connectorsForWallets(rainbowGroups, {
-  appName: "scaffold-eth-2",
+  appName: "Coins of Humanity",
   projectId: scaffoldConfig.walletConnectProjectId,
 });
