@@ -5,7 +5,7 @@
 
 export const WORLD_ID_CONFIG = {
   // World ID App ID - Replace with your actual World ID App ID
-  APP_ID: "app_staging_63bdbf24a4508f0f971c7311107ffa1c",
+  APP_ID: "app_staging_63c03f85cf19f0fbd838d513eb36a3b9",
 
   // World ID Actions
   ACTIONS: {
